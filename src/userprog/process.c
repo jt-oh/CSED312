@@ -612,7 +612,7 @@ setup_stack (void **esp)
         
         fte->frame_number = PG_NUM(kpage);                             // Initialize fte
         fte->s_pte = s_pte;
-        fte->tid = thread_current()->tid;
+        fte->thread = thread_current();
         
         hash_insert(&thread_current()->sPage_table, &s_pte->elem);     // Insert s_pte into sPageTable
 				//printf("page_number %x\n", s_pte->page_number);

@@ -13,6 +13,7 @@
 #include "threads/vaddr.h"
 #include "threads/fixed-point.h" // SOS 
 #include "vm/page.h" // SOS Implementation project 3
+#include "vm/swap.h" // SOS Implementation project 3
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -106,8 +107,11 @@ thread_init (void)
   list_init(&alarmCall_list);
   load_avg = 0;
   
-  list_init(&frame_table);   //Project 3
-  current_fte = NULL;        //Project 3
+  // Project 3
+  list_init(&frame_table);   
+  current_fte = NULL;        
+  swap_init();
+  // End Project 3
   // End SOS Implementation
 
   /* Set up a thread structure for the running thread. */

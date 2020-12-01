@@ -253,7 +253,7 @@ bool load_executables(struct sPage_table_entry *e){
    // Initialize fte
    fte->frame_number = PG_NUM(kpage);                 
    fte->s_pte = e;
-   fte->tid = thread_current()->tid;
+   fte->thread = thread_current();
 		
 		//printf("load executable before insert_frame\n");
    insert_frame(fte);     // Insert new frame table entry into frame_table

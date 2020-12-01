@@ -21,7 +21,7 @@ struct frame_table_entry
 {
     unsigned frame_number;                     
     struct sPage_table_entry *s_pte;     // Mapped supplemental page table entry 
-    tid_t tid;
+    struct thread *thread;
     struct list_elem elem;               // Frame table list element
 };
 
@@ -38,12 +38,13 @@ struct sPage_table_entry
     size_t read_bytes;
     size_t zero_bytes;
     struct hash_elem elem;      // Supplementary Page Table hash element 
+    uint32_t slot_number;       // Indicate location in swap slot when swapped in swap device
 };
 unsigned get_hash(unsigned);
 unsigned s_pt_hash_func(const struct hash_elem *, void *);
 bool s_pt_less_func (const struct hash_elem *, const struct hash_elem *);
 struct sPage_table_entry *find_s_pte (void *);
 void insert_frame (struct frame_table_entry *);
-
+struct frmae_table_entry *find_eviction_frame (void);
 
 #endif

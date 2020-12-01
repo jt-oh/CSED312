@@ -92,3 +92,12 @@ void insert_frame(struct frame_table_entry *fte){                      // insert
     list_insert(&current_fte->elem, &fte->elem);
   }
 }
+
+struct frame_table_entry *find_eviction_frame(){
+  struct thread *t;
+  while(){
+    t = current_fte->thread;
+    if(pagedir_is_accessed(&t->pagedir, &current_fte->s_pte->page_number << 12))
+      
+  }
+}
