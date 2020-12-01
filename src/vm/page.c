@@ -5,7 +5,7 @@ struct list frame_table;
 
 struct frame_table_entry *current_fte;        // current position in clock algorithm
 
-unsigned get_hash(unsigned page_number){
+unsigned get_hash(unsigned page_number){      // Get Hash value with page number
 	return page_number % 1024;
 }
 
@@ -93,9 +93,42 @@ void insert_frame(struct frame_table_entry *fte){                      // insert
 
 struct frame_table_entry *find_eviction_frame(){
   struct thread *t;
-  while(){
+  struct frame_table_entry *result;
+  
+  while(1){
     t = current_fte->thread;
-    if(pagedir_is_accessed(&t->pagedir, &current_fte->s_pte->page_number << 12))
-      
+    if (!pagedir_is_accessed(&t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12))
+      break;
+    else{ 
+      pagedir_set_accessed(&t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12, false);
+
+      if (current_fte != list_prev(list_end(&frame_table)))
+        current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
+      else
+        current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);
+    }
   }
+
+  result = current_fte;
+  
+  if (current_fte != list_prev(list_end(&frame_table)))
+    current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
+  else
+    current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);
+    
+  return result;
+}
+
+void delete_frame_entry (struct frame_table_entry *e){
+  ASSERT (e != NULL);
+
+  if(current_fte == e){               // If current_fte == deletion frame entry, move next to the current_fte
+    if (current_fte != list_prev(list_end(&frame_table)))
+      current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
+    else
+      current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);  
+  }
+
+  list_remove(&e->elem);              // Delete Frame table entry from frame table
+  free(e);                            // Deallocate frame table entry
 }

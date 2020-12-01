@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include "userprog/process.h"
 #include "threads/pte.h"
+#include "vm/swap.h"
 // End SOS Implementation project 3
 
 /* Number of page faults processed. */
@@ -185,34 +186,50 @@ page_fault (struct intr_frame *f)
     kill (f);
 }
 
+bool check_physical_memory ();
+
 bool page_fault_handler (void *vaddr){
    ASSERT (isValid_Vaddr(vaddr));
 
    struct sPage_table_entry *s_pte;
+   bool result;
    
    s_pte = find_s_pte(vaddr);
 
+   // Check whether free physical memory space remained 
+   if(!check_physical_memory()){
+      struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
+      if(eviction->s_pte->type != VM_FILE){
+         swap_out(eviction);                                         // Swap evicted frame into the swap table
+      }
+      else{
+         ;
+         // type == mmapped file
+      }
+      
+      // Deallocate Frame table entry
+      delete_frame_entry(eviction);
+   }
+
    switch(s_pte->type){
       case VM_EXEC:
-        if(!load_executables(s_pte)){
+        result = load_executables(s_pte);
 	 //printf("finish page_fault_handler\n");
-          return false;
-					}
-        else{
 	 //printf("finish page_fault_handler with fail\n");
-          return true;
-					}
+         break;
       case VM_FILE:
       
       case VM_SWAP:
-      
+         result = swap_in(s_pte);
+         break;      
       case VM_STACK:
-      
+   
       default:
-				break;
+	   		break;
    }
 
 	 //printf("finish page_fault_handler\n");
+   return result;
 }
 
 bool load_executables(struct sPage_table_entry *e){
@@ -259,5 +276,15 @@ bool load_executables(struct sPage_table_entry *e){
    insert_frame(fte);     // Insert new frame table entry into frame_table
 		//printf("load executable after insert_frame\n");
 
+   return true;
+}
+
+bool check_physical_memory(){                 // Check whether free physical memory space remained 
+   uint8_t *check = palloc_get_page();
+
+   if(check == NULL)
+      return false;
+   
+   free(check);
    return true;
 }
