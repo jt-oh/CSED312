@@ -45,7 +45,7 @@ unsigned s_pt_hash_func(const struct hash_elem *, void *);
 bool s_pt_less_func (const struct hash_elem *, const struct hash_elem *);
 struct sPage_table_entry *find_s_pte (void *);
 void insert_frame (struct frame_table_entry *);
-struct frmae_table_entry *find_eviction_frame (void);
+struct frame_table_entry *find_eviction_frame ();
 void delete_frame_entry (struct frame_table_entry *);
 
 #endif

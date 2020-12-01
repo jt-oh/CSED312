@@ -1,5 +1,6 @@
 #include "vm/page.h"
 #include "threads/pte.h"
+#include <stdlib.h>
 
 struct list frame_table;
 

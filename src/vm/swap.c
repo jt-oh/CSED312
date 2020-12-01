@@ -1,5 +1,4 @@
 #include "vm/swap.h"
-#include "vm/page.h"
 #include "threads/palloc.h"
 
 static struct block *swap_slots;          // Swap Block Device

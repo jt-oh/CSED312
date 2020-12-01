@@ -280,7 +280,7 @@ bool load_executables(struct sPage_table_entry *e){
 }
 
 bool check_physical_memory(){                 // Check whether free physical memory space remained 
-   uint8_t *check = palloc_get_page();
+   uint8_t *check = palloc_get_page(PAL_USER);
 
    if(check == NULL)
       return false;
