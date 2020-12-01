@@ -41,8 +41,6 @@ struct sPage_table_entry *find_s_pte (void *vaddr){
   struct list_elem *e;
   struct sPage_table_entry *result;
 
-  ASSERT (vaddr != NULL);
-
 	//printf("Hi! find_s_pte!\n");
     
   page_number = PG_NUM(vaddr);                       // get Page Number of vaddr
