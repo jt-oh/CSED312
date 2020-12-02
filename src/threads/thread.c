@@ -106,12 +106,8 @@ thread_init (void)
   // SOS Implementation
   list_init(&alarmCall_list);
   load_avg = 0;
-  
-  // Project 3
-  list_init(&frame_table);   
-  current_fte = NULL;        
-  swap_init();
-  // End Project 3
+
+  list_init(&frame_table);			// Project 3  
   // End SOS Implementation
 
   /* Set up a thread structure for the running thread. */

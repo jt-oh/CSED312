@@ -36,6 +36,7 @@
 #include "devices/ide.h"
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
+#include "vm/swap.h"					// SOS Implementation project 3
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -125,6 +126,7 @@ main (void)
   ide_init ();
   locate_block_devices ();
   filesys_init (format_filesys);
+	swap_init ();					// SOS Implement project 3
 #endif
 
   printf ("Boot complete.\n");

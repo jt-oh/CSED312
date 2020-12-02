@@ -229,6 +229,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
         {
           /* Read sector into bounce buffer, then partially copy
              into caller's buffer. */
+
           if (bounce == NULL) 
             {
               bounce = malloc (BLOCK_SECTOR_SIZE);

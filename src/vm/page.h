@@ -25,8 +25,6 @@ struct frame_table_entry
     struct list_elem elem;               // Frame table list element
 };
 
-struct frame_table_entry *current_fte;
-
 struct sPage_table_entry
 {
     uint8_t type;       // Three Virtual Address types : VM_EXE, VM_FILE, VM_SWAP
@@ -40,6 +38,7 @@ struct sPage_table_entry
     struct hash_elem elem;      // Supplementary Page Table hash element 
     uint32_t slot_number;       // Indicate location in swap slot when swapped in swap device
 };
+
 unsigned get_hash(unsigned);
 unsigned s_pt_hash_func(const struct hash_elem *, void *);
 bool s_pt_less_func (const struct hash_elem *, const struct hash_elem *);

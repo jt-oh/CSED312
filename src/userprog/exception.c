@@ -155,20 +155,24 @@ page_fault (struct intr_frame *f)
   /* Count page faults. */
   page_fault_cnt++;
 
+  /* Determine cause. */
+  not_present = (f->error_code & PF_P) == 0;
+  write = (f->error_code & PF_W) != 0;
+  user = (f->error_code & PF_U) != 0;
+
 	//printf("page_fault!\n");
   
-	//printf ("Page fault at %p: %s error %s page in %s context.\n",
-    //fault_addr,
-    //not_present ? "not present" : "rights violation",
-    //write ? "writing" : "reading",
-    //user ? "user" : "kernel");
+	/*printf ("Page fault at %p: %s error %s page in %s context.\n",
+    fault_addr,
+    not_present ? "not present" : "rights violation",
+    write ? "writing" : "reading",
+    user ? "user" : "kernel");
+		*/
+
+	if(!not_present)
+		Exit(-1);
 
   if(!isValid_Vaddr(fault_addr)){
-      /* Determine cause. */
-      not_present = (f->error_code & PF_P) == 0;
-      write = (f->error_code & PF_W) != 0;
-      user = (f->error_code & PF_U) != 0;
-
       /* To implement virtual memory, delete the rest of the function
          body, and replace it with code that brings in the page to
          which fault_addr refers. */
@@ -183,7 +187,7 @@ page_fault (struct intr_frame *f)
 	//printf("before page_fault_handler!\n");
   
 	if(!page_fault_handler(fault_addr))
-    kill (f);
+  	kill (f);
 }
 
 bool check_physical_memory ();
@@ -259,6 +263,7 @@ bool load_executables(struct sPage_table_entry *e){
    /* Add the page to the process's address space. */
    if (!install_page (((uintptr_t)e->page_number << 12), kpage, e->writable)) 
    {
+	 		printf("fail unistall!\n");
       palloc_free_page (kpage);
       free(fte);
       return false; 
@@ -285,6 +290,6 @@ bool check_physical_memory(){                 // Check whether free physical mem
    if(check == NULL)
       return false;
    
-   free(check);
+   palloc_free_page (check);
    return true;
 }

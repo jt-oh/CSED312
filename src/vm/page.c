@@ -4,7 +4,7 @@
 
 struct list frame_table;
 
-struct frame_table_entry *current_fte;        // current position in clock algorithm
+static struct frame_table_entry *current_fte;        // current position in clock algorithm
 
 unsigned get_hash(unsigned page_number){      // Get Hash value with page number
 	return page_number % 1024;
