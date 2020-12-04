@@ -84,7 +84,6 @@ merge (void)
   for (i = 0; i < CHUNK_CNT; i++)
     mp[i] = buf1 + CHUNK_SIZE * i;
 
-	printf("1\n");
   /* Merge. */
   op = buf2;
   while (mp_left > 0) 
@@ -103,12 +102,9 @@ merge (void)
       /* Advance merge pointer.
          Delete this chunk from the set if it's emptied. */ 
       if ((++mp[min] - buf1) % CHUNK_SIZE == 0){
-				printf("51\n");
         mp[min] = mp[--mp_left]; 
-				printf("4\n");
 			}
     }
-		printf("finish merge!\n");
 }
 
 static void

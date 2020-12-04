@@ -160,13 +160,13 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-	printf("page_fault!\n");
+	//printf("page_fault!\n");
   
-	printf ("Page fault at %p: %s error %s page in %s context.\n",
+	/*printf ("Page fault at %p: %s error %s page in %s context.\n",
     fault_addr,
     not_present ? "not present" : "rights violation",
     write ? "writing" : "reading",
-    user ? "user" : "kernel");
+    user ? "user" : "kernel");*/
 		
 
 	if(!not_present)
@@ -202,20 +202,22 @@ bool page_fault_handler (void *vaddr){
 
    // Check whether free physical memory space remained 
    if(!check_physical_memory()){
-	 		printf("eviction occur!\n");
+	 		//printf("eviction occur!\n");
       struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
-			printf("candidate find!\n");
+			//printf("candidate find!\n");
       if(eviction->s_pte->type != TYPE_FILE)
          if(!swap_out(eviction)){                                       // Swap evicted frame into the swap table
-				 		printf("swap out fail!\n");
+				 		//printf("swap out fail!\n");
 				 		return false;
       }
       else{
          ;
          // type == mmapped file
       }
-      
-      // Deallocate Frame table entry
+
+			// Deallocate Physical Memory and corresponding fte
+			palloc_free_page((uintptr_t)eviction->frame_number << 12);
+			pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
       delete_frame_entry(eviction);
    }
 
@@ -240,7 +242,7 @@ bool page_fault_handler (void *vaddr){
 	   		break;
    }
 
-	 printf("finish page_fault_handler with %d\n", result);
+	 //printf("finish page_fault_handler with %d\n", result);
    return result;
 }
 
@@ -288,7 +290,7 @@ bool load_executables(struct sPage_table_entry *e){
 		
 		//printf("load executable before insert_frame\n");
    insert_frame(fte);     // Insert new frame table entry into frame_table
-		//printf("load executable after insert_frame\n");
+		//printf("executable load with page number %x, frame number %x\n", e->page_number, kpage);
 
    return true;
 }

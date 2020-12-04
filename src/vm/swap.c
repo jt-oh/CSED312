@@ -1,5 +1,6 @@
 #include "vm/swap.h"
 #include "threads/palloc.h"
+#include <stdlib.h>
 
 static struct block *swap_slots;          // Swap Block Device
 static struct bitmap *swap_table;          // Swap Bitmap Table
