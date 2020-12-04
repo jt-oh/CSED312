@@ -28,7 +28,7 @@ bool swap_out (struct frame_table_entry *e){
   for (i=0; i<8; i++) 
     block_write(swap_slots, 8 * index + i, ((uintptr_t)e->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
 
-  e->s_pte->type = VM_SWAP;
+  e->s_pte->location = LOC_SWAP;
   e->s_pte->slot_number = index;                           // store swap index
 
   return true;
@@ -45,13 +45,12 @@ bool swap_in (struct sPage_table_entry *e){
   if(kpage == NULL)
     return false;
 
-  for(i=0; i<8; i++)
+  for(i=0; i<8; i++)            //Read block in Swap table 
     block_read(swap_slots, 8 * e->slot_number + i, kpage + BLOCK_SECTOR_SIZE * i);
 
-	bitmap_set(swap_table, e->slot_number, false);
-	e->slot_number = NULL;
+	delete_swap_table_entry(e->slot_number);    // Set bitmap entry to 0
   
-  if (!install_page ((uintptr_t)e->page_number << 12, kpage, e->writable)) {
+  if (!install_page ((uintptr_t)e->page_number << 12, kpage, e->writable)) {  // Bring Swap table entry to Physical memory
     palloc_free_page (kpage);
     return false; 
   }
@@ -63,6 +62,7 @@ bool swap_in (struct sPage_table_entry *e){
   }
   
   e->fte = fte;
+  e->location = LOC_PHYS;   // Set current location to Physical Memory
 
    // Initialize fte
   fte->frame_number = PG_NUM(kpage);                 
@@ -72,4 +72,8 @@ bool swap_in (struct sPage_table_entry *e){
   insert_frame(fte);     // Insert new frame table entry into frame_table
 
   return true;
+}
+
+void delete_swap_table_entry(uint32_t slot_number){     // Delete swap table entry 
+  bitmap_set(swap_table, slot_number, false);
 }

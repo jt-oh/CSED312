@@ -240,6 +240,8 @@ process_exit (void)
   for(i=2; i<cur->fd; i++)              // Close all fd in the exiting process
     process_close_file(i);
 
+  // Project 3 Deallocate sPage table
+  hash_destroy(&cur->sPage_table, s_pte_fte_ste_deallocator);
   /*End SOS Implementation */
 }
 
@@ -551,7 +553,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 			if(s_pte == NULL)       // If allocation failed, return false
     		return false;
 
-      s_pte->type = VM_EXEC;
+      s_pte->type = TYPE_EXEC;
+      s_pte->location = LOC_NONE;     // Current location is just in Virtual Space
       s_pte->page_number = PG_NUM(upage);
       s_pte->writable = writable;
       s_pte->file = file;
@@ -601,7 +604,8 @@ setup_stack (void **esp)
         *esp = PHYS_BASE;
         
         // SOS Implementation project 3
-        s_pte->type = VM_STACK;                                       // Initialize s_pte
+        s_pte->type = TYPE_EXEC;                                       // Initialize s_pte
+        s_pte->location = LOC_PHYS;                                    // Current location is in Physical memory
         s_pte->page_number = PG_NUM((uint8_t *)PHYS_BASE - PGSIZE);
         s_pte->writable = true;
         s_pte->file = NULL;

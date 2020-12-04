@@ -100,6 +100,7 @@ struct frame_table_entry *find_eviction_frame(){
 
 	ASSERT ( current_fte != NULL );
   
+  // Find eviction candidate
   while(1){
     t = current_fte->thread;
 		printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
@@ -111,16 +112,17 @@ struct frame_table_entry *find_eviction_frame(){
       pagedir_set_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12, false);
 			//printf("2\n");
 
+      // If current_fte arrives to the end of the frame table, set it to the start of the table
       if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
         current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
       else
         current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);
     }
   }
-
   result = current_fte;
 	printf("find eviction candidate in find_eviction_frame\n");
   
+  // Increment current_fte
   if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
     current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
   else
@@ -132,16 +134,37 @@ struct frame_table_entry *find_eviction_frame(){
 void delete_frame_entry (struct frame_table_entry *e){
   ASSERT (e != NULL);
 
+  // Deallocate Physical Memory
 	palloc_free_page((uintptr_t)e->frame_number << 12);
 	pagedir_clear_page(e->thread->pagedir, (uintptr_t)e->s_pte->page_number << 12);
 
-  if(current_fte == e){               // If current_fte == deletion frame entry, move next to the current_fte
+  // If current_fte == deletion frame entry, move next to the current_fte
+  if(current_fte == e){               
     if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
       current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
     else
       current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);  
   }
 
-  list_remove(&e->elem);              // Delete Frame table entry from frame table
-  free(e);                            // Deallocate frame table entry
+  // Delete Frame table entry from frame table and Deallocate frame table entry
+  list_remove(&e->elem);              
+  free(e);                            
+}
+
+void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
+  ASSERT (e != NULL);
+
+  struct sPage_table_entry *s_pte;
+
+  // Get s_pte
+  s_pte = hash_entry(e, struct sPage_table_entry, elem);    
+
+  // Deallocate related frame table entry or swap table entry
+  if(s_pte->location == LOC_PHYS)
+    delete_frame_entry(s_pte->fte);
+  else if(s_pte->location == LOC_SWAP)
+    delete_swap_table_entry(s_pte->slot_number);
+
+  // Deallocate s_pte
+  free(e);
 }

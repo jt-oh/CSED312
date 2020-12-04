@@ -10,10 +10,13 @@
 
 #define PG_NUM(ADDR) ((uintptr_t)ADDR >> 12)
 
-#define VM_EXEC 1
-#define VM_FILE 2
-#define VM_SWAP 3
-#define VM_STACK 4
+#define TYPE_EXEC 0
+#define TYPE_FILE 1
+
+#define LOC_NONE 0
+#define LOC_PHYS 1
+#define LOC_SWAP 2
+#define LOC_FILE 3
 
 struct list frame_table;
 
@@ -27,7 +30,8 @@ struct frame_table_entry
 
 struct sPage_table_entry
 {
-    uint8_t type;       // Three Virtual Address types : VM_EXE, VM_FILE, VM_SWAP
+    uint8_t type;       // Three Virtual Address types : VM_EXE, VM_FILE, VM_SWAP, VM_STACK
+    uint8_t location;
     unsigned page_number;  
     bool writable;      
     struct file *file;
@@ -46,5 +50,6 @@ struct sPage_table_entry *find_s_pte (void *);
 void insert_frame (struct frame_table_entry *);
 struct frame_table_entry *find_eviction_frame ();
 void delete_frame_entry (struct frame_table_entry *);
+void s_pte_fte_ste_deallocator (struct hash_elem *, void *);
 
 #endif

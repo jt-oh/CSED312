@@ -205,7 +205,7 @@ bool page_fault_handler (void *vaddr){
 	 		printf("eviction occur!\n");
       struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
 			printf("candidate find!\n");
-      if(eviction->s_pte->type != VM_FILE)
+      if(eviction->s_pte->type != TYPE_FILE)
          if(!swap_out(eviction)){                                       // Swap evicted frame into the swap table
 				 		printf("swap out fail!\n");
 				 		return false;
@@ -219,19 +219,23 @@ bool page_fault_handler (void *vaddr){
       delete_frame_entry(eviction);
    }
 
-   switch(s_pte->type){
-      case VM_EXEC:
-        result = load_executables(s_pte);
+   switch(s_pte->location){      // Devide cases into where the Memory data's location is
+      case LOC_NONE:
+         if(s_pte->type == TYPE_EXEC){
+            result = load_executables(s_pte);
+         }
+         else if(s_pte->type == TYPE_FILE){
+            ; //  s_pte->location = LOC_PHYS;
+         }
+         
 	 //printf("finish page_fault_handler\n");
 	 //printf("finish page_fault_handler with fail\n");
          break;
-      case VM_FILE:
+      case LOC_FILE:
       
-      case VM_SWAP:
+      case LOC_SWAP:
          result = swap_in(s_pte);
          break;      
-      case VM_STACK:
-   
       default:
 	   		break;
    }
@@ -275,7 +279,8 @@ bool load_executables(struct sPage_table_entry *e){
 
    // Mapping frame in spte
    e->fte = fte;
-
+   e->location = LOC_PHYS;       // Store Memory in Physcial memory
+   
    // Initialize fte
    fte->frame_number = PG_NUM(kpage);                 
    fte->s_pte = e;
