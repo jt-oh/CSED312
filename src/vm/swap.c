@@ -47,6 +47,9 @@ bool swap_in (struct sPage_table_entry *e){
 
   for(i=0; i<8; i++)
     block_read(swap_slots, 8 * e->slot_number + i, kpage + BLOCK_SECTOR_SIZE * i);
+
+	bitmap_set(swap_table, e->slot_number, false);
+	e->slot_number = NULL;
   
   if (!install_page ((uintptr_t)e->page_number << 12, kpage, e->writable)) {
     palloc_free_page (kpage);

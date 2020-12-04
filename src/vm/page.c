@@ -1,6 +1,7 @@
 #include "vm/page.h"
 #include "threads/pte.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 struct list frame_table;
 
@@ -85,6 +86,7 @@ void insert_frame(struct frame_table_entry *fte){                      // insert
     //printf("current_fte NULL\n");
 		list_push_front(&frame_table, &fte->elem);
     current_fte = fte;
+		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
   }
   else{      
     //printf("current_fte not NULL\n");
@@ -95,15 +97,21 @@ void insert_frame(struct frame_table_entry *fte){                      // insert
 struct frame_table_entry *find_eviction_frame(){
   struct thread *t;
   struct frame_table_entry *result;
+
+	ASSERT ( current_fte != NULL );
   
   while(1){
     t = current_fte->thread;
-    if (!pagedir_is_accessed(&t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12))
+		printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
+    if (!pagedir_is_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12)){
+			printf("1\n");
       break;
+		}
     else{ 
-      pagedir_set_accessed(&t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12, false);
+      pagedir_set_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12, false);
+			//printf("2\n");
 
-      if (current_fte != list_prev(list_end(&frame_table)))
+      if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
         current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
       else
         current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);
@@ -111,8 +119,9 @@ struct frame_table_entry *find_eviction_frame(){
   }
 
   result = current_fte;
+	printf("find eviction candidate in find_eviction_frame\n");
   
-  if (current_fte != list_prev(list_end(&frame_table)))
+  if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
     current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
   else
     current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);
@@ -123,8 +132,11 @@ struct frame_table_entry *find_eviction_frame(){
 void delete_frame_entry (struct frame_table_entry *e){
   ASSERT (e != NULL);
 
+	palloc_free_page((uintptr_t)e->frame_number << 12);
+	pagedir_clear_page(e->thread->pagedir, (uintptr_t)e->s_pte->page_number << 12);
+
   if(current_fte == e){               // If current_fte == deletion frame entry, move next to the current_fte
-    if (current_fte != list_prev(list_end(&frame_table)))
+    if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
       current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
     else
       current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);  
