@@ -147,7 +147,7 @@ struct thread
 
     // SOS Implementation project 3
     struct hash sPage_table;           // Supplemental page table per process
-
+    struct list mmap_table;   
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

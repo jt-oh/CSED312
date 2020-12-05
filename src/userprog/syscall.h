@@ -27,6 +27,13 @@ int process_create_file (struct file *);
 struct file *process_get_file (int);
 void process_close_file (int);
 
+
+// SOS Implementation project 3
+typedef int mapid_t;
+void mmap_write_back (struct sPage_table_entry *);
+static mapid_t allocate_mapid (void);
+void Munmap(mapid_t);
+mapid_t Mmap(int fd, void *);
 // End SOS Implementation
 
 #endif /* userprog/syscall.h */

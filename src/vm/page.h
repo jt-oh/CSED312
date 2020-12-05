@@ -41,6 +41,14 @@ struct sPage_table_entry
     size_t zero_bytes;
     struct hash_elem elem;      // Supplementary Page Table hash element 
     uint32_t slot_number;       // Indicate location in swap slot when swapped in swap device
+    struct list_elem mmap_table_elem;
+};
+
+struct mmap_file{
+    int mapid;
+    struct file *file;
+    struct list_elem elem;
+    struct list s_pte_list;
 };
 
 unsigned get_hash(unsigned);

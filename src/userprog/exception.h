@@ -13,7 +13,7 @@ void exception_print_stats (void);
 
 // SOS Implementation project 3
 bool page_fault_handler (void *vaddr);       
-bool load_executables (struct sPage_table_entry *); 
+bool load_files (struct sPage_table_entry *); 
 
 // End SOS Implementation project 3
 

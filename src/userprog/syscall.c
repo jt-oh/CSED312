@@ -10,6 +10,7 @@
 #include "filesys/filesys.h"
 
 #include "vm/page.h"
+#include "filesys/file.h"
 // End SOS Implementation
 
 
@@ -19,7 +20,10 @@
 
 static void syscall_handler (struct intr_frame *);
 
-struct lock file_lock;      // SOS Implementation - lock for mut ex of read and write sys calls
+// SOS Implementation
+struct lock file_lock;              // lock for accessing file system
+static struct lock mapid_lock;      // lock for mapid allocation - project 3
+// End SOS Implementation
 
 void
 syscall_init (void) 
@@ -149,6 +153,23 @@ syscall_handler (struct intr_frame *f UNUSED)
             pop_arg_from_stack(f->esp, arg, 1);
             Close(arg[0]);
           break;
+
+    case SYS_MMAP:
+            arg = (int *)malloc(sizeof(int) * 2);
+            pop_arg_from_stack(f->esp, arg, 2);
+            if(!isValid_Vaddr(arg[1])){
+              free(arg);
+              Exit(-1);
+            }
+            Mmap(arg[0], arg[1]);
+          break;
+
+    case SYS_MUNMAP:
+            arg = (int *)malloc(sizeof(int) * 1);
+            pop_arg_from_stack(f->esp, arg, 1);
+            Munmap(arg[0]);
+          break;
+
     default:
 					break;
   }
@@ -459,6 +480,153 @@ void process_close_file (int fd){
 		//printf ("%s\n", thread_current()->name);
 		//printf ("file_close file %d close!\n", fd);
   }
+}
+
+// SOS Project 3
+
+// Memory Mapped Files
+mapid_t Mmap(int fd, void *addr){
+  struct thread *t = thread_current();
+  struct file *file;
+  struct file *new_file;
+  mapid_t mapid;
+  off_t read_bytes;
+  struct sPage_table_entry *s_pte;
+  uint8_t *upage;
+  int i = 0;
+  struct mmap_file *mm_file;
+
+  ASSERT (addr != NULL);
+  ASSERT (t != NULL);
+
+  file = process_get_file(fd);         // Get File from File Descriptor
+
+  mapid = allocate_mapid();           // Get mapid
+  if(mapid == NULL)
+    return -1;
+  
+  // synchronization for file system 
+  lock_acquire(&file_lock);        
+  new_file = file_reopen(file);           // Reopen new independent file from file descriptor
+  read_bytes = file_length(new_file);     // Set read bytes to file size
+  lock_release(&file_lock);
+
+  mm_file = (struct mmap_file *)malloc(sizeof(struct mmap_file));     // Allocate page for mmap file
+  if(mm_file == NULL)
+    return -1;
+    
+  mm_file->mapid = mapid;       
+  mm_file->file = new_file;
+
+  list_push_back(&t->mmap_table, &mm_file->elem);                     // Insert mmap file to mmap_table of the current thread
+
+  upage = addr;
+  while(read_bytes > 0){                  // Get enough sPage table entry to cover the read bytes of the file and store into the mmap table
+    // Make and allocate sPage table entry for mmap file
+    s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));     
+    if(s_pte == NULL)
+      return -1;
+    
+    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+    s_pte->type = TYPE_FILE;
+    s_pte->location = LOC_NONE;     // Current location is just in Virtual Space
+    s_pte->page_number = PG_NUM(upage + i * PGSIZE);
+    s_pte->writable = true;
+    s_pte->file = new_file;
+    s_pte->fte = NULL;
+    s_pte->offset = i * PGSIZE;
+    s_pte->read_bytes = page_read_bytes;
+    s_pte->zero_bytes = page_zero_bytes;
+
+    hash_insert(&t->sPage_table, &s_pte->elem);
+    list_push_back(&mm_file->s_pte_list, &s_pte->mmap_table_elem);
+    //printf("%d page_number %x\n", i, s_pte->page_number);
+
+    /* Advance. */
+    read_bytes -= page_read_bytes;
+    upage += PGSIZE;
+    i++;                  
+  }
+  
+  return mapid;
+}
+
+// Memory Unmapped Files
+void Munmap(mapid_t mapid){
+  struct mmap_file *mm_file;
+  struct sPage_table_entry *s_pte;
+  struct thread *t = thread_current();
+  struct list_elem *e;
+
+  ASSERT (t != NULL);
+
+  // find correponding mmap instance in mmap table 
+  for(e = list_begin(&t->mmap_table); e != list_end(&t->mmap_table); e = list_next(e)){
+    mm_file = list_entry(e, struct mmap_file, elem);
+    if(mm_file->mapid == mapid)
+      break;
+  }
+
+  // if no corresponding mapid, return
+  if(e == list_end(&t->mmap_table))
+    return;
+  
+  // Deallocate all resources related to all s-pte in mmap table
+  for(e = list_begin(&mm_file->s_pte_list); e != list_end(&mm_file->s_pte_list); e = list_next(e)){
+    s_pte = list_entry(e, struct sPage_table_entry, mmap_table_elem);
+    if(s_pte->location == LOC_PHYS){  
+      // write back frame data into the file if the frame is dirty    
+      mmap_write_back (s_pte);
+      // deallocate physical memory and update page table
+      palloc_free_page((uintptr_t)s_pte->fte->frame_number << 12);
+	    pagedir_clear_page(s_pte->fte->thread->pagedir, (uintptr_t)s_pte->page_number << 12);
+
+      // deallocate corresponding frame entry
+      delete_frame_entry(s_pte->fte);
+    }
+
+    // deallocate s_pte
+    hash_delete (&t->sPage_table, &s_pte->elem);
+    free(s_pte);
+  }
+
+  // deallocate mmap_file
+  lock_acquire(&file_lock);
+  file_close(mm_file->file);
+  lock_release(&file_lock);
+  
+  list_remove(&mm_file->elem);
+  free(mm_file);
+}
+
+static mapid_t allocate_mapid (void){
+  static mapid_t next_mapid = 1;
+  mapid_t mapid;
+
+  // get new mapid
+  lock_acquire (&mapid_lock);
+  mapid = next_mapid++;
+  lock_release (&mapid_lock);
+
+  return mapid;
+}
+
+// When memory mapped files are unmapped and the dirty bit is true, write back into File System
+void mmap_write_back (struct sPage_table_entry *s_pte){
+  ASSERT(s_pte != NULL);
+  
+  bool dirty;                              // Check dirty bit is true or not
+  dirty = pagedir_is_dirty(s_pte->fte->thread->pagedir, (uintptr_t)s_pte->page_number << 12);
+
+  if(dirty){                               // If dirty bit is true, write back into File System
+    lock_acquire(&file_lock);
+    file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, sizeof(s_pte->read_bytes), s_pte->offset);
+    lock_release(&file_lock);
+  }
+
+  s_pte->location = LOC_FILE;             // Current sPage table entry is located in File System
 }
 
 /* End SOS Implementation */

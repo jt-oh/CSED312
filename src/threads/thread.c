@@ -615,6 +615,7 @@ init_thread (struct thread *t, const char *name, int priority)
   // Initialize child list of t
   list_init(&t->child_list);
 
+  list_init(&t->mmap_table);      // Project 3
   // Configure parent-child relationship
   if(t == initial_thread){
 		t->parent = NULL;

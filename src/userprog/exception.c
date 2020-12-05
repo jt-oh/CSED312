@@ -207,34 +207,27 @@ bool page_fault_handler (void *vaddr){
 			//printf("candidate find!\n");
       if(eviction->s_pte->type != TYPE_FILE)
          if(!swap_out(eviction)){                                       // Swap evicted frame into the swap table
-				 		//printf("swap out fail!\n");
-				 		return false;
+				//printf("swap out fail!\n");
+				return false;
       }
       else{
-         ;
+         mmap_write_back (eviction->s_pte);
          // type == mmapped file
       }
 
-			// Deallocate Physical Memory and corresponding fte
-			palloc_free_page((uintptr_t)eviction->frame_number << 12);
-			pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
+		// Deallocate Physical Memory and corresponding fte
+		palloc_free_page((uintptr_t)eviction->frame_number << 12);
+		pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
       delete_frame_entry(eviction);
    }
 
    switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
-         if(s_pte->type == TYPE_EXEC){
-            result = load_executables(s_pte);
-         }
-         else if(s_pte->type == TYPE_FILE){
-            ; //  s_pte->location = LOC_PHYS;
-         }
-         
-	 //printf("finish page_fault_handler\n");
-	 //printf("finish page_fault_handler with fail\n");
-         break;
       case LOC_FILE:
-      
+         //printf("finish page_fault_handler\n");
+	      //printf("finish page_fault_handler with fail\n");
+         result = load_files(s_pte);
+         break;
       case LOC_SWAP:
          result = swap_in(s_pte);
          break;      
@@ -246,7 +239,17 @@ bool page_fault_handler (void *vaddr){
    return result;
 }
 
-bool load_executables(struct sPage_table_entry *e){
+bool check_physical_memory(){                 // Check whether free physical memory space remained 
+   uint8_t *check = palloc_get_page(PAL_USER);
+
+   if(check == NULL)
+      return false;
+   
+   palloc_free_page (check);
+   return true;
+}
+
+bool load_files(struct sPage_table_entry *e){
    uint8_t *kpage;
    struct frame_table_entry *fte;
    
@@ -261,8 +264,7 @@ bool load_executables(struct sPage_table_entry *e){
       return false;
 
    /* Load this page. */
-   file_seek (e->file, e->offset);
-   if (file_read (e->file, kpage, e->read_bytes) != (int) e->read_bytes)
+   if (file_read_at (e->file, kpage, e->read_bytes, e->offset) != (int) e->read_bytes)
    {
       palloc_free_page (kpage);
       free(fte);
@@ -273,7 +275,7 @@ bool load_executables(struct sPage_table_entry *e){
    /* Add the page to the process's address space. */
    if (!install_page (((uintptr_t)e->page_number << 12), kpage, e->writable)) 
    {
-	 		printf("fail unistall!\n");
+	 	printf("fail unistall!\n");
       palloc_free_page (kpage);
       free(fte);
       return false; 
@@ -292,15 +294,5 @@ bool load_executables(struct sPage_table_entry *e){
    insert_frame(fte);     // Insert new frame table entry into frame_table
 		//printf("executable load with page number %x, frame number %x\n", e->page_number, kpage);
 
-   return true;
-}
-
-bool check_physical_memory(){                 // Check whether free physical memory space remained 
-   uint8_t *check = palloc_get_page(PAL_USER);
-
-   if(check == NULL)
-      return false;
-   
-   palloc_free_page (check);
-   return true;
+   return true;   
 }
