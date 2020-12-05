@@ -7,6 +7,8 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 
+#include "threads/thread.h"				// for dbugging
+
 /* Partition that contains the file system. */
 struct block *fs_device;
 
@@ -55,6 +57,13 @@ filesys_create (const char *name, off_t initial_size)
     free_map_release (inode_sector, 1);
   dir_close (dir);
 
+
+	//if(success){
+		//printf("%s\n", thread_current()->name);
+		//printf("filesys_open file %s create!\n", name);
+	//}
+		
+
   return success;
 }
 
@@ -69,9 +78,13 @@ filesys_open (const char *name)
   struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
-  if (dir != NULL)
+  if (dir != NULL){
     dir_lookup (dir, name, &inode);
+		}	
+
   dir_close (dir);
+	//printf("%s\n", thread_current()->name);
+	//printf("filesys_open dir %p inode with %p with file name %s\n", dir, inode, name);
 
   return file_open (inode);
 }

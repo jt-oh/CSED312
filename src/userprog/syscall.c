@@ -8,7 +8,11 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include "filesys/filesys.h"
+
+#include "vm/page.h"
 // End SOS Implementation
+
+
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
@@ -68,13 +72,17 @@ syscall_handler (struct intr_frame *f UNUSED)
           break;
 
     case SYS_CREATE:
-            arg = (int *)malloc(sizeof(int) * 2);
+            //printf("begin Create!\n");
+						arg = (int *)malloc(sizeof(int) * 2);
             pop_arg_from_stack(f->esp, arg, 2);
             if(!isValid_Vaddr(arg[0])){
+							//printf("invalid vaddr in Create\n");
               free(arg);
               Exit(-1);
             }
+						//printf("Creating\n");
             result = Create(arg[0], arg[1]);
+						//printf("end Create!\n");
           break;
 
     case SYS_REMOVE:
@@ -91,6 +99,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             arg = (int *)malloc(sizeof(int) * 1);
             pop_arg_from_stack(f->esp, arg, 1);
             if(!isValid_Vaddr(arg[0])){
+							//printf("invalid vaddr!\n");
               free(arg);
               Exit(-1);
             }
@@ -190,6 +199,14 @@ bool isValid_Vaddr (void *addr){
 	return true;
 }
 
+bool check_writable(void *buffer){
+  struct sPage_table_entry *s_pte;
+
+	s_pte = find_s_pte((uintptr_t)buffer);
+
+	return s_pte->writable;
+}
+
 void pop_arg_from_stack (void *esp, int *arg, int n){
   int i;
 
@@ -255,22 +272,45 @@ int Wait (pid_t pid){
 bool Create (const char *file, unsigned initial_size){
   ASSERT (isValid_Vaddr(file));
 
+	bool result;
+	//printf ("%s\n", thread_current()->name);
+	//printf("Create() file %s!\n", file);
+
   // Create file with the given name file
-  return filesys_create(file, initial_size);
+	lock_acquire(&file_lock);
+	//printf("%s\n", file);
+  result = filesys_create(file, initial_size);
+	//printf("2\n");
+	lock_release (&file_lock);
+
+	return result;
 }
 
 bool Remove (const char *file){
   ASSERT (isValid_Vaddr(file));
 
+	bool result;
+
   // Remove file with the given name file
-  return filesys_remove(file);
+	lock_acquire(&file_lock);
+  result = filesys_remove(file);
+	lock_release(&file_lock);
+
+	return result;
 }
 
 int Open (const char *file_){
 
   ASSERT (isValid_Vaddr(file_));
 
-  struct file *file = filesys_open(file_);
+  struct file *file;
+
+	lock_acquire(&file_lock);
+	file = filesys_open(file_);
+	lock_release(&file_lock);
+
+	//printf ("%s\n", thread_current()->name);
+	//printf("Open() file %p open!!\n", file);
 
 	if(file)
 		return process_create_file(file);   // get new fd with the given name file
@@ -280,12 +320,17 @@ int Open (const char *file_){
 
 int Filesize (int fd){
   struct file *file = process_get_file (fd);
+	int result;
 
   if(file == NULL)
 		return 0;
 
   // Get file size with the given fd
-  return file_length(file);
+	lock_acquire(&file_lock);
+  result = file_length(file);
+	lock_release(&file_lock);
+
+	return result;
 }
 
 int Read (int fd, void *buffer, unsigned size){
@@ -293,6 +338,9 @@ int Read (int fd, void *buffer, unsigned size){
   int result;
 
   ASSERT (isValid_Vaddr(buffer));
+
+	if(!check_writable(buffer))
+		Exit(-1);
 
   // acquire lock to guarantee mutual exclusion to the file access
   lock_acquire(&file_lock);
@@ -346,17 +394,24 @@ void Seek (int fd, unsigned position){
 		return 0;
 
   // Change the position of the file with the given fd about position size
+	lock_acquire(&file_lock);
   file_seek(file, position);
+	lock_release(&file_lock);
 }
 
 unsigned Tell (int fd){
  struct file *file = process_get_file (fd);
+ unsigned result;
 
   if(file == NULL)
 		return 0;
 
   // Get file psotion with the given fd 
-  return file_tell(file);
+	lock_acquire(&file_lock);
+  result = file_tell(file);
+	lock_release(&file_lock);
+
+	return result;
 }
 
 void Close (int fd){
@@ -397,8 +452,12 @@ void process_close_file (int fd){
 
   // close file with fd and initialize corresponding fd table
   if(t->fd >= fd){
+		lock_acquire(&file_lock);
     file_close(t->fd_table[fd]);
+		lock_release(&file_lock);
     t->fd_table[fd] = NULL;
+		//printf ("%s\n", thread_current()->name);
+		//printf ("file_close file %d close!\n", fd);
   }
 }
 

@@ -3,6 +3,8 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 
+#include "threads/thread.h"			// for debugging
+
 /* An open file. */
 struct file 
   {
@@ -18,6 +20,10 @@ struct file *
 file_open (struct inode *inode) 
 {
   struct file *file = calloc (1, sizeof *file);
+
+	//printf("%s\n", thread_current()->name);
+	//printf("file_open file %p with inode %p\n", file, inode);
+
   if (inode != NULL && file != NULL)
     {
       file->inode = inode;
