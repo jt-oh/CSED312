@@ -9,7 +9,6 @@
 #include "threads/synch.h"
 #include "filesys/filesys.h"
 
-#include "vm/page.h"
 #include "filesys/file.h"
 // End SOS Implementation
 
@@ -30,6 +29,7 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&file_lock);    // SOS Implementation project2
+	lock_init(&mapid_lock);		// SOS Implementation project3
 }
 
 
@@ -155,13 +155,11 @@ syscall_handler (struct intr_frame *f UNUSED)
           break;
 
     case SYS_MMAP:
+						//printf("begin mmap!\n");
             arg = (int *)malloc(sizeof(int) * 2);
             pop_arg_from_stack(f->esp, arg, 2);
-            if(!isValid_Vaddr(arg[1])){
-              free(arg);
-              Exit(-1);
-            }
-            Mmap(arg[0], arg[1]);
+            result = Mmap(arg[0], arg[1]);
+						//printf("end mmap!\n");
           break;
 
     case SYS_MUNMAP:
@@ -186,6 +184,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CLOSE:
     case SYS_SEEK:
     case SYS_EXIT:
+		case SYS_MUNMAP:
             break;
     default:
             f->eax = result;
@@ -499,33 +498,45 @@ mapid_t Mmap(int fd, void *addr){
   ASSERT (addr != NULL);
   ASSERT (t != NULL);
 
-  file = process_get_file(fd);         // Get File from File Descriptor
 
-  mapid = allocate_mapid();           // Get mapid
-  if(mapid == NULL)
-    return -1;
+  file = process_get_file(fd);         // Get File from File Descriptor
   
   // synchronization for file system 
   lock_acquire(&file_lock);        
-  new_file = file_reopen(file);           // Reopen new independent file from file descriptor
-  read_bytes = file_length(new_file);     // Set read bytes to file size
+  read_bytes = file_length(file);     // Set read bytes to file size
   lock_release(&file_lock);
+
+	//printf("1\n");
+
+	if(read_bytes == 0 || (uintptr_t)addr % PGSIZE != 0 || (uintptr_t)addr == 0 || fd == 0 || fd == 1)
+		return -1;	
+
+	//printf("2\n");
+
 
   mm_file = (struct mmap_file *)malloc(sizeof(struct mmap_file));     // Allocate page for mmap file
   if(mm_file == NULL)
     return -1;
-    
-  mm_file->mapid = mapid;       
-  mm_file->file = new_file;
 
-  list_push_back(&t->mmap_table, &mm_file->elem);                     // Insert mmap file to mmap_table of the current thread
+	list_init(&mm_file->s_pte_list);
+
+	//printf("3\n");
+
+  lock_acquire(&file_lock);        
+  new_file = file_reopen(file);           // Reopen new independent file from file descriptor
+	lock_release(&file_lock);
 
   upage = addr;
   while(read_bytes > 0){                  // Get enough sPage table entry to cover the read bytes of the file and store into the mmap table
     // Make and allocate sPage table entry for mmap file
     s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));     
-    if(s_pte == NULL)
+    if(s_pte == NULL || isValid_Vaddr(upage)){
+  		lock_acquire(&file_lock);        
+  		file_close(new_file);       
+			lock_release(&file_lock);
       return -1;
+		}
+		//printf("4\n");
     
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
@@ -547,8 +558,24 @@ mapid_t Mmap(int fd, void *addr){
     /* Advance. */
     read_bytes -= page_read_bytes;
     upage += PGSIZE;
-    i++;                  
+    i++;                 
+
+		//printf("insert upage %p\n", (uintptr_t)upage << 12);
+		//printf("remained read_bytes%d\n", read_bytes);
   }
+
+	//printf("5\n");
+  mapid = allocate_mapid();           // Get mapid
+  if(mapid == NULL)
+    return -1;
+	//printf("5\n");
+
+  mm_file->mapid = mapid;       
+  mm_file->file = new_file;
+
+	//printf("6\n");
+  list_push_back(&t->mmap_table, &mm_file->elem);                     // Insert mmap file to mmap_table of the current thread
+	//printf("7\n");
   
   return mapid;
 }

@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "userprog/process.h"
+#include "vm/page.h"
 
 void syscall_init (void);
 
