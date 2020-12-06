@@ -635,10 +635,15 @@ void mmap_write_back (struct sPage_table_entry *s_pte){
   bool dirty;                              // Check dirty bit is true or not
   dirty = pagedir_is_dirty(s_pte->fte->thread->pagedir, (uintptr_t)s_pte->page_number << 12);
 
-  if(dirty){                               // If dirty bit is true, write back into File System
-    lock_acquire(&file_lock);
-    file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
-    lock_release(&file_lock);
+  if(dirty){           
+    if(!lock_held_by_current_thread(&file_lock))                    // If dirty bit is true, write back into File System
+      file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
+
+    else{
+      lock_acquire(&file_lock);
+      file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
+      lock_release(&file_lock);
+    }
   }
 
   s_pte->location = LOC_FILE;             // Current sPage table entry is located in File System

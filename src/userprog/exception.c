@@ -254,6 +254,7 @@ bool check_physical_memory(){                 // Check whether free physical mem
 bool load_files(struct sPage_table_entry *e){
    uint8_t *kpage;
    struct frame_table_entry *fte;
+   bool success;
    
    /* Get a page of memory. */
    kpage = palloc_get_page (PAL_USER);
@@ -266,15 +267,19 @@ bool load_files(struct sPage_table_entry *e){
       return false;
 
    /* Load this page. */
-	 lock_acquire(&file_lock);
-   if (file_read_at (e->file, kpage, e->read_bytes, e->offset) != (int) e->read_bytes)
+   if(lock_held_by_current_thread(&file_lock))
+      success = file_read_at (e->file, kpage, e->read_bytes, e->offset) != (int) e->read_bytes;
+   else{
+      lock_acquire(&file_lock);   
+      success = file_read_at (e->file, kpage, e->read_bytes, e->offset) != (int) e->read_bytes;
+      lock_release(&file_lock);
+   }
+   if (success)
    {
-	 		lock_release(&file_lock);
       palloc_free_page (kpage);
       free(fte);
       return false; 
    }
-	 lock_release(&file_lock);
    memset (kpage + e->read_bytes, 0, e->zero_bytes);
 
    /* Add the page to the process's address space. */
