@@ -188,6 +188,8 @@ page_fault (struct intr_frame *f)
   
 	if(!page_fault_handler(fault_addr))
   	kill (f);
+
+	//printf("finish page_fault()\n");
 }
 
 bool check_physical_memory ();

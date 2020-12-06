@@ -47,6 +47,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   // get syscall number
   number = *(int *)f->esp;
 
+	//printf("syscall_handler with number %d\n", number);
+
   // assign to each syscall handler func
   switch(number){
     case SYS_HALT:
@@ -498,6 +500,7 @@ mapid_t Mmap(int fd, void *addr){
   ASSERT (addr != NULL);
   ASSERT (t != NULL);
 
+	//printf("start Mmap()\n");
 
   file = process_get_file(fd);         // Get File from File Descriptor
   
@@ -575,7 +578,7 @@ mapid_t Mmap(int fd, void *addr){
 
 	//printf("6\n");
   list_push_back(&t->mmap_table, &mm_file->elem);                     // Insert mmap file to mmap_table of the current thread
-	//printf("7\n");
+	//printf("finish Mamp()\n");
   
   return mapid;
 }
@@ -589,19 +592,27 @@ void Munmap(mapid_t mapid){
 
   ASSERT (t != NULL);
 
+	//printf("start Munmap()\n");
+
   // find correponding mmap instance in mmap table 
-  for(e = list_begin(&t->mmap_table); e != list_end(&t->mmap_table); e = list_next(e)){
+  for(e = list_begin(&t->mmap_table); e != list_end(&t->mmap_table); list_next(e)){
     mm_file = list_entry(e, struct mmap_file, elem);
     if(mm_file->mapid == mapid)
       break;
   }
 
+	//printf("1\n");
+
   // if no corresponding mapid, return
   if(e == list_end(&t->mmap_table))
     return;
+
+	//printf("2\n");
+	//printf("%d\n", list_size(&mm_file->s_pte_list));
   
   // Deallocate all resources related to all s-pte in mmap table
-  for(e = list_begin(&mm_file->s_pte_list); e != list_end(&mm_file->s_pte_list); e = list_next(e)){
+  for(e = list_begin(&mm_file->s_pte_list); e != list_end(&mm_file->s_pte_list);){
+		//printf("start for\n");
     s_pte = list_entry(e, struct sPage_table_entry, mmap_table_elem);
     if(s_pte->location == LOC_PHYS){  
       // write back frame data into the file if the frame is dirty    
@@ -614,18 +625,33 @@ void Munmap(mapid_t mapid){
       delete_frame_entry(s_pte->fte);
     }
 
+		//printf("3\n");
+
+		// increment e
+		e = list_next(e);
+
     // deallocate s_pte
     hash_delete (&t->sPage_table, &s_pte->elem);
     free(s_pte);
+
+		//printf("4\n");
   }
+	//printf("1\n");
 
   // deallocate mmap_file
   lock_acquire(&file_lock);
+	//printf("1\n");
   file_close(mm_file->file);
+	//printf("1\n");
   lock_release(&file_lock);
+
+	//printf("5\n");
   
   list_remove(&mm_file->elem);
+	//printf("6\n");
   free(mm_file);
+
+	//printf("finish Munmap()\n");
 }
 
 static mapid_t allocate_mapid (void){
@@ -649,7 +675,7 @@ void mmap_write_back (struct sPage_table_entry *s_pte){
 
   if(dirty){                               // If dirty bit is true, write back into File System
     lock_acquire(&file_lock);
-    file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, sizeof(s_pte->read_bytes), s_pte->offset);
+    file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
     lock_release(&file_lock);
   }
 
