@@ -52,10 +52,10 @@ sort_chunks (const char *subprocess, int exit_status)
       /* Write this chunk to a file. */
       snprintf (fn, sizeof fn, "buf%zu", i);
 			//printf("sort_chunk after snpringtf\n");
-      printf("sort_chunk create %zu  bool %d\n", i, create (fn, CHUNK_SIZE));
+      create (fn, CHUNK_SIZE);
       quiet = true;
       CHECK ((handle = open (fn)) > 1, "open \"%s\"", fn);
-      printf("sort_chunk write %dbytes\n", write (handle, buf1 + CHUNK_SIZE * i, CHUNK_SIZE));
+      write (handle, buf1 + CHUNK_SIZE * i, CHUNK_SIZE);
       close (handle);
 
 			//printf("sort_chunk write buf%zu finish!\n", i);

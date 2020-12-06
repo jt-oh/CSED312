@@ -207,15 +207,19 @@ bool page_fault_handler (void *vaddr){
 	 		//printf("eviction occur!\n");
       struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
 			//printf("candidate find!\n");
-      if(eviction->s_pte->type != TYPE_FILE)
-         if(!swap_out(eviction)){                                       // Swap evicted frame into the swap table
-				//printf("swap out fail!\n");
-				return false;
+      if(eviction->s_pte->type != TYPE_FILE){
+         if(!swap_out(eviction))                                       // Swap evicted frame into the swap table
+						return false;
+
+					//printf("swap out fail!\n");
       }
       else{
+					//printf("mmap_write_back ", TYPE_FILE);
          mmap_write_back (eviction->s_pte);
          // type == mmapped file
       }
+
+		//printf("1\n");
 
 		// Deallocate Physical Memory and corresponding fte
 		palloc_free_page((uintptr_t)eviction->frame_number << 12);
