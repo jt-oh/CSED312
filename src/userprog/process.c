@@ -218,6 +218,14 @@ process_exit (void)
   struct list_elem *e;
   struct mmap_file *mm_file;
 
+	// SOS Implementation project3 - deallocate mmaped files
+  while(!list_empty(&cur->mmap_table)){
+    e = list_begin(&cur->mmap_table);
+    mm_file = list_entry(e, struct mmap_file, elem);
+    deallocate_mmap_file(mm_file);
+  }
+	// End SOS Implementation
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -243,11 +251,6 @@ process_exit (void)
     process_close_file(i);
 
   // Project 3 Deallocate sPage table
-  while(!list_empty(&cur->mmap_table)){
-    e = list_begin(&cur->mmap_table);
-    mm_file = list_entry(e, struct mmap_file, elem);
-    deallocate_mmap_file(mm_file);
-  }
   hash_destroy(&cur->sPage_table, s_pte_fte_ste_deallocator);
   /*End SOS Implementation */
 }

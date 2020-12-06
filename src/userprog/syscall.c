@@ -497,12 +497,13 @@ mapid_t Mmap(int fd, void *addr){
   int i = 0;
   struct mmap_file *mm_file;
 
-  ASSERT (addr != NULL);
   ASSERT (t != NULL);
 
 	//printf("start Mmap()\n");
 
   file = process_get_file(fd);         // Get File from File Descriptor
+	if(file == NULL)
+		return -1;
   
   // synchronization for file system 
   lock_acquire(&file_lock);        
@@ -533,10 +534,11 @@ mapid_t Mmap(int fd, void *addr){
   while(read_bytes > 0){                  // Get enough sPage table entry to cover the read bytes of the file and store into the mmap table
     // Make and allocate sPage table entry for mmap file
     s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));     
-    if(s_pte == NULL || isValid_Vaddr(upage)){
+    if(s_pte == NULL || find_s_pte(upage)){
   		lock_acquire(&file_lock);        
   		file_close(new_file);       
 			lock_release(&file_lock);
+			//printf("s_pte %p with page %p\n", s_pte, upage);
       return -1;
 		}
 		//printf("4\n");
@@ -546,7 +548,7 @@ mapid_t Mmap(int fd, void *addr){
 
     s_pte->type = TYPE_FILE;
     s_pte->location = LOC_NONE;     // Current location is just in Virtual Space
-    s_pte->page_number = PG_NUM(upage + i * PGSIZE);
+    s_pte->page_number = PG_NUM(upage);
     s_pte->writable = true;
     s_pte->file = new_file;
     s_pte->fte = NULL;
