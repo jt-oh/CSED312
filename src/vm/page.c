@@ -2,6 +2,7 @@
 #include "threads/pte.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include "userprog/syscall.h"
 
 struct list frame_table;
 
@@ -164,4 +165,51 @@ void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
 
   // Deallocate s_pte
   free(s_pte);
+}
+
+void deallocate_mmap_file (struct mmap_file *mm_file){
+  struct list_elem *e;
+  struct sPage_table_entry *s_pte;
+  struct thread *t = thread_current();
+
+  ASSERT ( mm_file != NULL);
+  ASSERT ( t != NULL);
+
+  // Deallocate all resources related to all s-pte in mmap table
+  while(!list_empty(&mm_file->s_pte_list)){
+		//printf("start for\n");
+    e = list_begin(&mm_file->s_pte_list);
+    s_pte = list_entry(e, struct sPage_table_entry, mmap_table_elem);
+    if(s_pte->location == LOC_PHYS){  
+      // write back frame data into the file if the frame is dirty    
+      mmap_write_back (s_pte);
+      // deallocate physical memory and update page table
+      palloc_free_page((uintptr_t)s_pte->fte->frame_number << 12);
+	    pagedir_clear_page(s_pte->fte->thread->pagedir, (uintptr_t)s_pte->page_number << 12);
+
+      // deallocate corresponding frame entry
+      delete_frame_entry(s_pte->fte);
+    }
+
+    // deallocate s_pte
+    list_remove(e);
+    hash_delete (&t->sPage_table, &s_pte->elem);
+    free(s_pte);
+
+		//printf("4\n");
+  }
+	//printf("1\n");
+
+  // deallocate mmap_file
+  lock_acquire(&file_lock);
+	//printf("1\n");
+  file_close(mm_file->file);
+	//printf("1\n");
+  lock_release(&file_lock);
+
+	//printf("5\n");
+  
+  list_remove(&mm_file->elem);
+	//printf("6\n");
+  free(mm_file);
 }

@@ -8,6 +8,8 @@
 void syscall_init (void);
 
 // SOS Implementation project 2
+struct lock file_lock;              // lock for accessing file system
+
 void hHalt (void);
 void Exit (int);
 pid_t Exec(const char *);

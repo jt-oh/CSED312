@@ -610,47 +610,7 @@ void Munmap(mapid_t mapid){
 	//printf("2\n");
 	//printf("%d\n", list_size(&mm_file->s_pte_list));
   
-  // Deallocate all resources related to all s-pte in mmap table
-  for(e = list_begin(&mm_file->s_pte_list); e != list_end(&mm_file->s_pte_list);){
-		//printf("start for\n");
-    s_pte = list_entry(e, struct sPage_table_entry, mmap_table_elem);
-    if(s_pte->location == LOC_PHYS){  
-      // write back frame data into the file if the frame is dirty    
-      mmap_write_back (s_pte);
-      // deallocate physical memory and update page table
-      palloc_free_page((uintptr_t)s_pte->fte->frame_number << 12);
-	    pagedir_clear_page(s_pte->fte->thread->pagedir, (uintptr_t)s_pte->page_number << 12);
-
-      // deallocate corresponding frame entry
-      delete_frame_entry(s_pte->fte);
-    }
-
-		//printf("3\n");
-
-		// increment e
-		e = list_next(e);
-
-    // deallocate s_pte
-    hash_delete (&t->sPage_table, &s_pte->elem);
-    free(s_pte);
-
-		//printf("4\n");
-  }
-	//printf("1\n");
-
-  // deallocate mmap_file
-  lock_acquire(&file_lock);
-	//printf("1\n");
-  file_close(mm_file->file);
-	//printf("1\n");
-  lock_release(&file_lock);
-
-	//printf("5\n");
-  
-  list_remove(&mm_file->elem);
-	//printf("6\n");
-  free(mm_file);
-
+  deallocate_mmap_file(mm_file);
 	//printf("finish Munmap()\n");
 }
 
