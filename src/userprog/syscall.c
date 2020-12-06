@@ -331,7 +331,7 @@ int Open (const char *file_){
 	file = filesys_open(file_);
 	lock_release(&file_lock);
 
-	//printf ("%s\n", thread_current()->name);
+	//printf ("%s\t", thread_current()->name);
 	//printf("Open() file %p open!!\n", file);
 
 	if(file)

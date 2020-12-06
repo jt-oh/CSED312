@@ -266,12 +266,15 @@ bool load_files(struct sPage_table_entry *e){
       return false;
 
    /* Load this page. */
+	 lock_acquire(&file_lock);
    if (file_read_at (e->file, kpage, e->read_bytes, e->offset) != (int) e->read_bytes)
    {
+	 		lock_release(&file_lock);
       palloc_free_page (kpage);
       free(fte);
       return false; 
    }
+	 lock_release(&file_lock);
    memset (kpage + e->read_bytes, 0, e->zero_bytes);
 
    /* Add the page to the process's address space. */

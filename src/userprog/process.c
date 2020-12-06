@@ -21,6 +21,7 @@
 // SOS Implementation project 3
 #include "vm/page.h"  
 #include "threads/pte.h"
+#include "userprog/syscall.h"
 // End SOS Implementation project 3
 
 #define DELIM " "   //SOS implementation
@@ -244,8 +245,12 @@ process_exit (void)
     }
   
   /* SOS Implementation project 2*/
-  if(cur->running_file != NULL)         // if there exists executable, 
+  if(cur->running_file != NULL){         // if there exists executable, 
+		lock_acquire(&file_lock);
 		file_close(cur->running_file);      // allow write using file_close
+		lock_release(&file_lock);
+
+	}
 
   for(i=2; i<cur->fd; i++)              // Close all fd in the exiting process
     process_close_file(i);
@@ -363,6 +368,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 	//printf("file name: %s!\n", file_name);
 
   /* Open executable file. */
+	lock_acquire(&file_lock);		// SOS Implementation - filesys lock acquire
   file = filesys_open (file_name);   
 
   if (file == NULL) 
@@ -468,6 +474,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 		if(file != NULL)                          // if load success, 
 			file_close (file);                      // make sure file closed
 	}
+
+	// filesys lock release
+	lock_release(&file_lock);
 
 	//printf("load Finish!\n");
   /* END SOS Implementation */
