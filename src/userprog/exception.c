@@ -174,7 +174,31 @@ page_fault (struct intr_frame *f)
 	if(!not_present)
 		Exit(-1);
 
-  if(!find_s_pte(fault_addr) || !is_user_vaddr(fault_addr)){
+
+	//printf("f->esp %p, fault_addr %p\n", f->esp, fault_addr);
+   if((uintptr_t)f->esp >= (uintptr_t)fault_addr){
+      esp_growth = (uintptr_t)f->esp - 4 * 1024;
+
+      if((uintptr_t)PHYS_BASE - 8 * 1024 * 1024 > esp_growth)
+         kill (f);
+      else if(esp_growth < (uintptr_t)fault_addr){
+			//	printf("make s_pte for new stack region\n");
+         s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));
+         s_pte->type = TYPE_STACK;                                       // Initialize s_pte
+         s_pte->location = LOC_NONE;                                    // Current location is in Physical memory
+         s_pte->page_number = PG_NUM(fault_addr);
+         s_pte->writable = true;
+         s_pte->file = NULL;
+         s_pte->fte = NULL;
+         s_pte->offset = 0;
+         s_pte->read_bytes = 0;
+         s_pte->zero_bytes = PGSIZE;
+
+         hash_insert(&thread_current()->sPage_table, &s_pte->elem);
+      }
+   }
+	//printf("spte %p, find spte %p, is user vaddr %d\n",s_pte, find_s_pte(fault_addr), is_user_vaddr((uint8_t *)f->esp - PGSIZE));
+  if((!find_s_pte(fault_addr) || !is_user_vaddr(fault_addr)) && s_pte ==NULL){
       /* To implement virtual memory, delete the rest of the function
          body, and replace it with code that brings in the page to
          which fault_addr refers. */
@@ -188,41 +212,27 @@ page_fault (struct intr_frame *f)
   
 	//printf("before page_fault_handler!\n");
   
-   if((uintptr_t)f->esp > (uintptr_t)fault_addr){
-      esp_growth = (uintptr_t)f->esp - 4 * 1024;
-      if((uintptr_t)PHYS_BASE - 8 * 1024 * 1024 > esp_growth)
-         kill (f);
-      else if(esp_growth < (uintptr_t)fault_addr){
-         s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));
-         s_pte->type = TYPE_STACK;                                       // Initialize s_pte
-         s_pte->location = LOC_NONE;                                    // Current location is in Physical memory
-         s_pte->page_number = PG_NUM((uint8_t *)f->esp - PGSIZE);
-         s_pte->writable = true;
-         s_pte->file = NULL;
-         s_pte->fte = NULL;
-         s_pte->offset = 0;
-         s_pte->read_bytes = 0;
-         s_pte->zero_bytes = PGSIZE;
 
-         hash_insert(&thread_current()->sPage_table, &s_pte->elem);
-      }
-   }
 
-	if(!page_fault_handler(fault_addr))
+	if(!page_fault_handler(fault_addr, s_pte))
   	kill (f);
+	
 
 	//printf("finish page_fault()\n");
 }
 
 bool check_physical_memory ();
 
-bool page_fault_handler (void *vaddr){
-   ASSERT (find_s_pte(vaddr) && is_user_vaddr(vaddr));
-
+bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
+   //ASSERT (find_s_pte(vaddr) && is_user_vaddr(vaddr));
+	//ASSERT (find_s_pte(vaddr))
    struct sPage_table_entry *s_pte;
    bool result;
 
    s_pte = find_s_pte(vaddr);
+
+	 if(!s_pte)
+	 		s_pte = e;
 
    // Check whether free physical memory space remained 
    if(!check_physical_memory()){
@@ -255,8 +265,11 @@ bool page_fault_handler (void *vaddr){
    switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
          if(s_pte->type == TYPE_STACK){
+				 		//printf("before stack growth\n");
             result = stack_growth(s_pte);
-            return;
+						//printf("come back from stack grow\n");
+
+            break;
          }
       case LOC_FILE:
          //printf("finish page_fault_handler\n");
@@ -369,6 +382,7 @@ bool stack_growth(struct sPage_table_entry *s_pte){
    struct frame_table_entry *fte;
    bool success;
 
+	//printf("s_pte %p\n", s_pte);
    kpage = palloc_get_page (PAL_USER | PAL_ZERO);
    if (kpage == NULL)
       return false;
@@ -379,9 +393,11 @@ bool stack_growth(struct sPage_table_entry *s_pte){
       return false;
    }
 
-   success = install_page (s_pte, kpage, true);
-
+	//printf("before install page\n");
+   success = install_page ((uintptr_t)s_pte->page_number << 12, kpage, true);
+	//printf("after install page\n");
    if(success){
+	 		//printf("install page success!\n");
       s_pte->fte = fte;
       s_pte->location = LOC_PHYS;   
 
@@ -394,6 +410,7 @@ bool stack_growth(struct sPage_table_entry *s_pte){
    }
 
    else{
+	 		//printf("deallocate resources\n");
       palloc_free_page (kpage);
       free(fte);
       return false;

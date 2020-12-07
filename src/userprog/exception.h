@@ -12,7 +12,7 @@ void exception_init (void);
 void exception_print_stats (void);
 
 // SOS Implementation project 3
-bool page_fault_handler (void *vaddr);       
+bool page_fault_handler (void *vaddr, struct sPage_table_entry *);       
 bool load_files (struct sPage_table_entry *); 
 bool stack_growth(struct sPage_table_entry *);
 // End SOS Implementation project 3
