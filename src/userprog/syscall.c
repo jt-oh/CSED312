@@ -300,13 +300,13 @@ bool Create (const char *file, unsigned initial_size){
 	//printf("Create() file %s!\n", file);
 
   // Create file with the given name file
+  pin_buffer(file);
 	lock_acquire(&file_lock);
 	//printf("%s\n", file);
-  pin_buffer(file);
   result = filesys_create(file, initial_size);
-  unpin_buffer(file);
 	//printf("2\n");
 	lock_release (&file_lock);
+  unpin_buffer(file);
 
 	return result;
 }
@@ -317,11 +317,11 @@ bool Remove (const char *file){
 	bool result;
 
   // Remove file with the given name file
-	lock_acquire(&file_lock);
   pin_buffer(file);
+	lock_acquire(&file_lock);
   result = filesys_remove(file);
-  unpin_buffer(file);
 	lock_release(&file_lock);
+  unpin_buffer(file);
 
 	return result;
 }
@@ -369,23 +369,21 @@ int Read (int fd, void *buffer, unsigned size){
 	if(!check_writable(buffer))
 		Exit(-1);
 
-  // acquire lock to guarantee mutual exclusion to the file access
-  lock_acquire(&file_lock);
-
   if(fd == STDIN_FILENO){           // Reading on Standard Input case
     for(result = 0; result < size; result++)
       ((uint8_t *)buffer)[result] = input_getc();
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){            // Reading on other input case
     pin_buffer(buffer);
+  // acquire lock to guarantee mutual exclusion to the file access
+  	lock_acquire(&file_lock);
     result = file_read(file, buffer, size);
+  	lock_release(&file_lock);
     unpin_buffer(buffer);
   }
   else{                             // Exception case
     result = -1;
   }
-
-  lock_release(&file_lock);
 
   return result;
 }
@@ -395,9 +393,6 @@ int Write (int fd, const void * buffer, unsigned size){
   int result;
 
   ASSERT (buffer != NULL);
-
-  // acquire lock to guarantee mutual exclusion to the file access
-  lock_acquire(&file_lock);
  
   if(fd == STDOUT_FILENO){            // Writing on Standard Output case
 		//printf("stdout write!\n");
@@ -406,14 +401,15 @@ int Write (int fd, const void * buffer, unsigned size){
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){              // Writing on other output case
     pin_buffer(buffer);
+  	// acquire lock to guarantee mutual exclusion to the file access
+  	lock_acquire(&file_lock);
     result = file_write(file, buffer, size);
+  	lock_release(&file_lock);
     unpin_buffer(buffer);
   }
   else{                               // Exception case
     result = -1;
   }
-
-  lock_release(&file_lock);
 
   return result;
 }
@@ -668,19 +664,17 @@ void mmap_write_back (struct sPage_table_entry *s_pte){
 
   if(dirty){           
 	//printf("2\n");
-    /*if(!lock_held_by_current_thread(&file_lock)){                    // If dirty bit is true, write back into File System
+    if(!lock_held_by_current_thread(&file_lock)){                    // If dirty bit is true, write back into File System
 			//printf("3\n");
 			//printf("%d, %p, %p, %d, %d\n",s_pte->type, s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
       file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
 		}
-    else{*/
+    else{
 			//printf("4\n");
-      ASSERT(!lock_held_by_current_thread(&file_lock));
-
       lock_acquire(&file_lock);
       file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
       lock_release(&file_lock);
-    //}
+    }
   }
 
 	//printf("5\n");

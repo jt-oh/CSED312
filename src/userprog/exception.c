@@ -288,18 +288,18 @@ bool load_files(struct sPage_table_entry *e){
 	//	printf("kpage %p file %p\n", kpage, e->file);
 
    /* Load this page. */
-   /*if(lock_held_by_current_thread(&file_lock)){
+   if(lock_held_by_current_thread(&file_lock)){
 	 		//printf("1\n");
       success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
 		}
-   else{*/
+   else{
 			//if(file_lock.holder)
 				//printf("%s\n", file_lock.holder->name);
       lock_acquire(&file_lock);   
 			//printf("3\n");
       success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
       lock_release(&file_lock);
-   //}
+   }
 
 		//printf("1\n");
    if (!success)
