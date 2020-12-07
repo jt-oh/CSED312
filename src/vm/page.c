@@ -106,13 +106,14 @@ struct frame_table_entry *find_eviction_frame(){
   while(1){
     t = current_fte->thread;
 		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
-    if (!pagedir_is_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12)){
-			//printf("1\n");
+   
+    if (!pagedir_is_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12) && current_fte->pin == false){
+      //printf("1\n");
       break;
-		}
+    }
     else{ 
       pagedir_set_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12, false);
-			//printf("2\n");
+      //printf("2\n");
 
       // If current_fte arrives to the end of the frame table, set it to the start of the table
       if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))

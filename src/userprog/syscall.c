@@ -10,6 +10,7 @@
 #include "filesys/filesys.h"
 
 #include "filesys/file.h"
+#include "vm/page.h"
 // End SOS Implementation
 
 
