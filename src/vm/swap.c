@@ -69,6 +69,7 @@ bool swap_in (struct sPage_table_entry *e){
   fte->frame_number = PG_NUM(kpage);                 
   fte->s_pte = e;
   fte->thread = thread_current();
+  fte->pin = false;
 		
   insert_frame(fte);     // Insert new frame table entry into frame_table
 

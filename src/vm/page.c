@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "userprog/syscall.h"
+#include "userprog/exception.h"
 
 struct list frame_table;
 
@@ -212,4 +213,60 @@ void deallocate_mmap_file (struct mmap_file *mm_file){
   list_remove(&mm_file->elem);
 	//printf("6\n");
   free(mm_file);
+}
+
+void pin_buffer(void *buffer){
+  struct sPage_table_entry *s_pte;
+
+  s_pte = find_s_pte(buffer);
+  ASSERT(s_pte != NULL);
+
+  s_pte->fte->pin = true;
+
+  if(s_pte->fte !=NULL)
+    return;
+  
+  // Check whether free physical memory space remained 
+  if(!check_physical_memory()){
+    //printf("eviction occur!\n");
+    struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
+    //printf("candidate find!\n");
+    if(eviction->s_pte->type != TYPE_FILE){
+        if(!swap_out(eviction))                                      // Swap evicted frame into the swap table
+          Exit(-1);
+
+        //printf("swap out!\n");
+    }
+    else{
+        //printf("mmap_write_back ", TYPE_FILE);
+        mmap_write_back (eviction->s_pte);
+        // type == mmapped file
+    }
+
+  // Deallocate Physical Memory and corresponding fte
+    palloc_free_page((uintptr_t)eviction->frame_number << 12);
+    pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
+    delete_frame_entry(eviction);
+  }
+
+ switch(s_pte->location){      // Devide cases into where the Memory data's location is
+      case LOC_NONE:
+      case LOC_FILE:
+          load_files(s_pte);
+          break;
+      case LOC_SWAP:
+          swap_in(s_pte);
+         break;      
+      default:
+	   		break;
+   }
+
+}
+
+void unpin_vuffer(void *buffer){
+  struct sPage_table_entry *s_pte = find_s_pte(buffer);
+
+  ASSERT (s_pte != NULL);
+
+  s_pte->fte->pin = false;
 }

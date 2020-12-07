@@ -275,6 +275,16 @@ bool load_files(struct sPage_table_entry *e){
    if (fte == NULL)
       return false;
 
+   // Mapping frame in spte
+   e->fte = fte;
+   e->location = LOC_PHYS;       // Store Memory in Physcial memory
+   
+   // Initialize fte
+   fte->frame_number = PG_NUM(kpage);                 
+   fte->s_pte = e;
+   fte->thread = thread_current();
+   fte->pin = false;
+
 	//	printf("kpage %p file %p\n", kpage, e->file);
 
    /* Load this page. */
@@ -290,6 +300,7 @@ bool load_files(struct sPage_table_entry *e){
       success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
       lock_release(&file_lock);
    }
+
 		//printf("1\n");
    if (!success)
    {
@@ -313,14 +324,7 @@ bool load_files(struct sPage_table_entry *e){
 
 		//printf("4\n");
 
-   // Mapping frame in spte
-   e->fte = fte;
-   e->location = LOC_PHYS;       // Store Memory in Physcial memory
    
-   // Initialize fte
-   fte->frame_number = PG_NUM(kpage);                 
-   fte->s_pte = e;
-   fte->thread = thread_current();
 		
 		//printf("load executable before insert_frame\n");
    insert_frame(fte);     // Insert new frame table entry into frame_table

@@ -301,7 +301,9 @@ bool Create (const char *file, unsigned initial_size){
   // Create file with the given name file
 	lock_acquire(&file_lock);
 	//printf("%s\n", file);
+  pin_buffer(file);
   result = filesys_create(file, initial_size);
+  unpin_buffer(file);
 	//printf("2\n");
 	lock_release (&file_lock);
 
@@ -315,7 +317,9 @@ bool Remove (const char *file){
 
   // Remove file with the given name file
 	lock_acquire(&file_lock);
+  pin_buffer(file);
   result = filesys_remove(file);
+  unpin_buffer(file);
 	lock_release(&file_lock);
 
 	return result;
@@ -372,7 +376,9 @@ int Read (int fd, void *buffer, unsigned size){
       ((uint8_t *)buffer)[result] = input_getc();
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){            // Reading on other input case
+    pin_buffer(buffer);
     result = file_read(file, buffer, size);
+    unpin_buffer(buffer);
   }
   else{                             // Exception case
     result = -1;
@@ -398,7 +404,9 @@ int Write (int fd, const void * buffer, unsigned size){
     result = size;
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){              // Writing on other output case
+    pin_buffer(buffer);
     result = file_write(file, buffer, size);
+    unpin_buffer(buffer);
   }
   else{                               // Exception case
     result = -1;
