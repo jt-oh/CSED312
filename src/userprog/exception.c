@@ -172,7 +172,7 @@ page_fault (struct intr_frame *f)
 	if(!not_present)
 		Exit(-1);
 
-  if(!isValid_Vaddr(fault_addr)){
+  if(!find_s_pte(fault_addr) || !is_user_vaddr(fault_addr)){
       /* To implement virtual memory, delete the rest of the function
          body, and replace it with code that brings in the page to
          which fault_addr refers. */
@@ -195,7 +195,7 @@ page_fault (struct intr_frame *f)
 bool check_physical_memory ();
 
 bool page_fault_handler (void *vaddr){
-   ASSERT (isValid_Vaddr(vaddr));
+   ASSERT (find_s_pte(vaddr) && is_user_vaddr(vaddr));
 
    struct sPage_table_entry *s_pte;
    bool result;
@@ -219,13 +219,16 @@ bool page_fault_handler (void *vaddr){
          // type == mmapped file
       }
 
-		//printf("1\n");
+			//printf("1\n");
 
 		// Deallocate Physical Memory and corresponding fte
-		palloc_free_page((uintptr_t)eviction->frame_number << 12);
-		pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
+			palloc_free_page((uintptr_t)eviction->frame_number << 12);
+			pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
       delete_frame_entry(eviction);
    }
+
+	 //printf("finish eviction!\n");
+	 //printf("type %d, loc %d\n", s_pte->type, s_pte->location);
 
    switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
@@ -265,26 +268,39 @@ bool load_files(struct sPage_table_entry *e){
    if (kpage == NULL)
       return false;
 
+		//printf("1\n");
+
    /* Get a fte of memory. */
    fte = (struct frame_table_entry *)malloc(sizeof(struct frame_table_entry));
    if (fte == NULL)
       return false;
 
+	//	printf("kpage %p file %p\n", kpage, e->file);
+
    /* Load this page. */
-   if(lock_held_by_current_thread(&file_lock))
-      success = file_read_at (e->file, kpage, e->read_bytes, e->offset) != (int) e->read_bytes;
+   if(lock_held_by_current_thread(&file_lock)){
+	 		//printf("1\n");
+      success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
+		}
    else{
+			//if(file_lock.holder)
+				//printf("%s\n", file_lock.holder->name);
       lock_acquire(&file_lock);   
-      success = file_read_at (e->file, kpage, e->read_bytes, e->offset) != (int) e->read_bytes;
+			//printf("3\n");
+      success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
       lock_release(&file_lock);
    }
-   if (success)
+		//printf("1\n");
+   if (!success)
    {
       palloc_free_page (kpage);
       free(fte);
       return false; 
    }
+		//printf("3\n");
    memset (kpage + e->read_bytes, 0, e->zero_bytes);
+
+		//printf("3\n");
 
    /* Add the page to the process's address space. */
    if (!install_page (((uintptr_t)e->page_number << 12), kpage, e->writable)) 
@@ -294,6 +310,8 @@ bool load_files(struct sPage_table_entry *e){
       free(fte);
       return false; 
    }
+
+		//printf("4\n");
 
    // Mapping frame in spte
    e->fte = fte;

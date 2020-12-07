@@ -522,6 +522,12 @@ mapid_t Mmap(int fd, void *addr){
   if(mm_file == NULL)
     return -1;
 
+  mapid = allocate_mapid();           // Get mapid
+  if(mapid == NULL){
+		free(mm_file);
+    return -1;
+	}
+
 	list_init(&mm_file->s_pte_list);
 
 	//printf("3\n");
@@ -538,6 +544,7 @@ mapid_t Mmap(int fd, void *addr){
   		lock_acquire(&file_lock);        
   		file_close(new_file);       
 			lock_release(&file_lock);
+			deallocate_mmap_file(mm_file);
 			//printf("s_pte %p with page %p\n", s_pte, upage);
       return -1;
 		}
@@ -547,7 +554,7 @@ mapid_t Mmap(int fd, void *addr){
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
     s_pte->type = TYPE_FILE;
-    s_pte->location = LOC_NONE;     // Current location is just in Virtual Space
+    s_pte->location = LOC_FILE;     // Current location is just in Virtual Space
     s_pte->page_number = PG_NUM(upage);
     s_pte->writable = true;
     s_pte->file = new_file;
@@ -570,9 +577,7 @@ mapid_t Mmap(int fd, void *addr){
   }
 
 	//printf("5\n");
-  mapid = allocate_mapid();           // Get mapid
-  if(mapid == NULL)
-    return -1;
+
 	//printf("5\n");
 
   mm_file->mapid = mapid;       
