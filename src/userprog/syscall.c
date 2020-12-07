@@ -668,17 +668,19 @@ void mmap_write_back (struct sPage_table_entry *s_pte){
 
   if(dirty){           
 	//printf("2\n");
-    if(!lock_held_by_current_thread(&file_lock)){                    // If dirty bit is true, write back into File System
+    /*if(!lock_held_by_current_thread(&file_lock)){                    // If dirty bit is true, write back into File System
 			//printf("3\n");
 			//printf("%d, %p, %p, %d, %d\n",s_pte->type, s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
       file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
 		}
-    else{
+    else{*/
 			//printf("4\n");
+      ASSERT(!lock_held_by_current_thread(&file_lock));
+
       lock_acquire(&file_lock);
       file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
       lock_release(&file_lock);
-    }
+    //}
   }
 
 	//printf("5\n");

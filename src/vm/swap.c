@@ -1,14 +1,17 @@
 #include "vm/swap.h"
 #include "threads/palloc.h"
+#include "threads/synch.h"
 #include <stdlib.h>
 
 static struct block *swap_slots;          // Swap Block Device
 static struct bitmap *swap_table;          // Swap Bitmap Table
+struct lock swap_lock;                    // Lock for swap devices
 
 void swap_init(){
   swap_slots = block_get_role(BLOCK_SWAP);              // Get Swap block device
   swap_table = bitmap_create(block_size(swap_slots) / 8);     // Create swap table with size of #sector/8
   bitmap_set_all(swap_table, false);                    // Initialize swap table
+  lock_init(&swap_lock);
 }
 
 size_t find_empty_swap_slot(){                        // Find empy swap slot
@@ -26,8 +29,11 @@ bool swap_out (struct frame_table_entry *e){
     return false;
 
   // Store Frame Data into Swap slot
-  for (i=0; i<8; i++) 
+  for (i=0; i<8; i++) {
+    lock_acquire(&swap_lock);
     block_write(swap_slots, 8 * index + i, ((uintptr_t)e->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
+    lock_release(&swap_lock);
+  }
 
   e->s_pte->location = LOC_SWAP;
   e->s_pte->slot_number = index;                           // store swap index
@@ -46,8 +52,11 @@ bool swap_in (struct sPage_table_entry *e){
   if(kpage == NULL)
     return false;
 
-  for(i=0; i<8; i++)            //Read block in Swap table 
+  for(i=0; i<8; i++){            //Read block in Swap table 
+    lock_acquire(&swap_lock);
     block_read(swap_slots, 8 * e->slot_number + i, kpage + BLOCK_SECTOR_SIZE * i);
+    lock_release(&swap_lock);
+  }
 
 	delete_swap_table_entry(e->slot_number);    // Set bitmap entry to 0
   
