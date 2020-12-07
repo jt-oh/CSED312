@@ -196,7 +196,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
 bool isValid_Vaddr (void *addr){
   struct thread *t = thread_current ();
-  uint32_t * ptr;
 	int i;
 
 	//printf("isValid_Vaddr after is user vaddr\n");

@@ -138,6 +138,8 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
+  uintptr_t esp_growth;
+  struct sPage_table_entry *s_pte;
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -186,6 +188,26 @@ page_fault (struct intr_frame *f)
   
 	//printf("before page_fault_handler!\n");
   
+   if((uintptr_t)f->esp > (uintptr_t)fault_addr){
+      esp_growth = (uintptr_t)f->esp - 4 * 1024;
+      if((uintptr_t)PHYS_BASE - 8 * 1024 * 1024 > esp_growth)
+         kill (f);
+      else if(esp_growth < (uintptr_t)fault_addr){
+         s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));
+         s_pte->type = TYPE_STACK;                                       // Initialize s_pte
+         s_pte->location = LOC_NONE;                                    // Current location is in Physical memory
+         s_pte->page_number = PG_NUM((uint8_t *)f->esp - PGSIZE);
+         s_pte->writable = true;
+         s_pte->file = NULL;
+         s_pte->fte = NULL;
+         s_pte->offset = 0;
+         s_pte->read_bytes = 0;
+         s_pte->zero_bytes = PGSIZE;
+
+         hash_insert(&thread_current()->sPage_table, &s_pte->elem);
+      }
+   }
+
 	if(!page_fault_handler(fault_addr))
   	kill (f);
 
@@ -199,7 +221,7 @@ bool page_fault_handler (void *vaddr){
 
    struct sPage_table_entry *s_pte;
    bool result;
-   
+
    s_pte = find_s_pte(vaddr);
 
    // Check whether free physical memory space remained 
@@ -207,13 +229,13 @@ bool page_fault_handler (void *vaddr){
 	 		//printf("eviction occur!\n");
       struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
 			//printf("candidate find!\n");
-      if(eviction->s_pte->type != TYPE_FILE){
+      if(eviction->s_pte->type == TYPE_EXEC){
          if(!swap_out(eviction))                                       // Swap evicted frame into the swap table
 						return false;
 
 					//printf("swap out fail!\n");
       }
-      else{
+      else if(eviction->s_pte->type == TYPE_FILE){
 					//printf("mmap_write_back ", TYPE_FILE);
          mmap_write_back (eviction->s_pte);
          // type == mmapped file
@@ -232,6 +254,10 @@ bool page_fault_handler (void *vaddr){
 
    switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
+         if(s_pte->type == TYPE_STACK){
+            result = stack_growth(s_pte);
+            return;
+         }
       case LOC_FILE:
          //printf("finish page_fault_handler\n");
 	      //printf("finish page_fault_handler with fail\n");
@@ -272,8 +298,11 @@ bool load_files(struct sPage_table_entry *e){
 
    /* Get a fte of memory. */
    fte = (struct frame_table_entry *)malloc(sizeof(struct frame_table_entry));
-   if (fte == NULL)
+   if (fte == NULL){
+      palloc_free_page(kpage);
       return false;
+   }
+      
 
    // Mapping frame in spte
    e->fte = fte;
@@ -324,7 +353,7 @@ bool load_files(struct sPage_table_entry *e){
 
 		//printf("4\n");
 
-   
+  
 		
 		//printf("load executable before insert_frame\n");
    insert_frame(fte);     // Insert new frame table entry into frame_table
@@ -332,3 +361,44 @@ bool load_files(struct sPage_table_entry *e){
 
    return true;   
 }
+
+bool stack_growth(struct sPage_table_entry *s_pte){
+   ASSERT(s_pte != NULL);
+
+   uint8_t *kpage;
+   struct frame_table_entry *fte;
+   bool success;
+
+   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+   if (kpage == NULL)
+      return false;
+
+   fte = (struct frame_table_entry *)malloc(sizeof(struct frame_table_entry));
+   if (fte == NULL){
+      palloc_free_page(kpage);
+      return false;
+   }
+
+   success = install_page (s_pte, kpage, true);
+
+   if(success){
+      s_pte->fte = fte;
+      s_pte->location = LOC_PHYS;   
+
+      fte->frame_number = PG_NUM(kpage);                      // Initialize fte
+      fte->s_pte = s_pte;
+      fte->thread = thread_current();
+      fte->pin = false;
+
+      insert_frame(fte);                                     // Insert fte into frame_table
+   }
+
+   else{
+      palloc_free_page (kpage);
+      free(fte);
+      return false;
+   }  
+
+   return true;
+}
+

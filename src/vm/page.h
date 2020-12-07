@@ -12,6 +12,7 @@
 
 #define TYPE_EXEC 0
 #define TYPE_FILE 1
+#define TYPE_STACK 2
 
 #define LOC_NONE 0
 #define LOC_PHYS 1
