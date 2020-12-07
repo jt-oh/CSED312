@@ -264,7 +264,7 @@ void pin_buffer(void *buffer){
 
 }
 
-void unpin_vuffer(void *buffer){
+void unpin_buffer(void *buffer){
   struct sPage_table_entry *s_pte = find_s_pte(buffer);
 
   ASSERT (s_pte != NULL);
