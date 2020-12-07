@@ -516,38 +516,54 @@ mapid_t Mmap(int fd, void *addr){
 		return -1;	
 
 	//printf("2\n");
-
+	
+  lock_acquire(&file_lock);        
+  new_file = file_reopen(file);           // Reopen new independent file from file descriptor
+	lock_release(&file_lock);
 
   mm_file = (struct mmap_file *)malloc(sizeof(struct mmap_file));     // Allocate page for mmap file
-  if(mm_file == NULL)
+  if(mm_file == NULL){
+  	lock_acquire(&file_lock);        
+  	file_close(new_file);				          // Reopen new independent file from file descriptor
+		lock_release(&file_lock);
     return -1;
+	}
 
   mapid = allocate_mapid();           // Get mapid
   if(mapid == NULL){
+  	lock_acquire(&file_lock);        
+  	file_close(new_file);				          // Reopen new independent file from file descriptor
+		lock_release(&file_lock);
 		free(mm_file);
     return -1;
 	}
 
+  mm_file->mapid = mapid;       
+  mm_file->file = new_file;
 	list_init(&mm_file->s_pte_list);
+
+  list_push_back(&t->mmap_table, &mm_file->elem);                     // Insert mmap file to mmap_table of the current thread
+
+
+
 
 	//printf("3\n");
 
-  lock_acquire(&file_lock);        
-  new_file = file_reopen(file);           // Reopen new independent file from file descriptor
-	lock_release(&file_lock);
+
+	
+	//printf("4\n");
 
   upage = addr;
   while(read_bytes > 0){                  // Get enough sPage table entry to cover the read bytes of the file and store into the mmap table
     // Make and allocate sPage table entry for mmap file
     s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));     
     if(s_pte == NULL || find_s_pte(upage)){
-  		lock_acquire(&file_lock);        
-  		file_close(new_file);       
-			lock_release(&file_lock);
+			//printf("5\n");
 			deallocate_mmap_file(mm_file);
 			//printf("s_pte %p with page %p\n", s_pte, upage);
       return -1;
 		}
+
 		//printf("4\n");
     
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
@@ -580,11 +596,10 @@ mapid_t Mmap(int fd, void *addr){
 
 	//printf("5\n");
 
-  mm_file->mapid = mapid;       
-  mm_file->file = new_file;
+
 
 	//printf("6\n");
-  list_push_back(&t->mmap_table, &mm_file->elem);                     // Insert mmap file to mmap_table of the current thread
+
 	//printf("finish Mamp()\n");
   
   return mapid;
