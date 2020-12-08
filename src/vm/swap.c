@@ -52,14 +52,19 @@ bool swap_in (struct sPage_table_entry *e){
   if(kpage == NULL)
     return false;
 
+	printf("1\n");
+
   for(i=0; i<8; i++){            //Read block in Swap table 
     lock_acquire(&swap_lock);
     block_read(swap_slots, 8 * e->slot_number + i, kpage + BLOCK_SECTOR_SIZE * i);
     lock_release(&swap_lock);
   }
+	printf("2\n");
 
 	delete_swap_table_entry(e->slot_number);    // Set bitmap entry to 0
   
+	printf("3\n");
+
   if (!install_page ((uintptr_t)e->page_number << 12, kpage, e->writable)) {  // Bring Swap table entry to Physical memory
     palloc_free_page (kpage);
     return false; 
@@ -79,8 +84,12 @@ bool swap_in (struct sPage_table_entry *e){
   fte->s_pte = e;
   fte->thread = thread_current();
   fte->pin = false;
+
+	printf("4\n");
 		
-  insert_frame(fte);     // Insert new frame table entry into frame_table
+  insert_frame(fte);     // Insert new frame table entry into frame_table\
+
+	printf("5\n");
 
   return true;
 }

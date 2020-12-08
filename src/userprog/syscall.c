@@ -48,7 +48,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   // get syscall number
   number = *(int *)f->esp;
 
-	//printf("syscall_handler with number %d by thread %s\n", number, thread_current()->name);
+	printf("syscall_handler with number %d by thread %s\n", number, thread_current()->name);
 
   // assign to each syscall handler func
   switch(number){
@@ -193,7 +193,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             f->eax = result;
   }
 
-	//printf("end syscall_handler with syscall number %d by thread %s\n", number, thread_current()->name);
+	printf("end syscall_handler with syscall number %d by thread %s\n", number, thread_current()->name);
 }
 
 bool isValid_Vaddr (void *addr){
@@ -320,7 +320,7 @@ bool Remove (const char *file){
   // Remove file with the given name file
   pin_buffer(file, strlen(file));
 	lock_acquire(&file_lock);
-  result = filesys_remove(file, strlen(file));
+  result = filesys_remove(file);
 	lock_release(&file_lock);
   unpin_buffer(file, strlen(file));
 
@@ -378,9 +378,9 @@ int Read (int fd, void *buffer, unsigned size){
     pin_buffer(buffer, size);
   // acquire lock to guarantee mutual exclusion to the file access
   	lock_acquire(&file_lock);
-		//printf("before file_read at read!\n");
+		printf("before file_read at read!\n");
     result = file_read(file, buffer, size);
-		//printf("after file_read at read!\n");
+		printf("after file_read at read!\n");
   	lock_release(&file_lock);
     unpin_buffer(buffer, size);
   }
@@ -406,9 +406,9 @@ int Write (int fd, const void * buffer, unsigned size){
     pin_buffer(buffer, size);
   	// acquire lock to guarantee mutual exclusion to the file access
   	lock_acquire(&file_lock);
-		//printf("before file_write at write!\n");
+		printf("before file_write at write!\n");
     result = file_write(file, buffer, size);
-		//printf("after file_write at write!\n");
+		printf("after file_write at write!\n");
   	lock_release(&file_lock);
     unpin_buffer(buffer, size);
   }

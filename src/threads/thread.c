@@ -359,9 +359,11 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+	printf("before process_exit()\n");
 #ifdef USERPROG
   process_exit ();
 #endif
+	printf("after process_exit()\n");
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us

@@ -85,13 +85,13 @@ void insert_frame(struct frame_table_entry *fte){                      // insert
   ASSERT(fte != NULL);
 
   if(current_fte == NULL){                     // Frame table is empty
-    //printf("current_fte NULL\n");
+    printf("current_fte NULL\n");
 		list_push_front(&frame_table, &fte->elem);
     current_fte = fte;
 		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
   }
   else{      
-    //printf("current_fte not NULL\n");
+    printf("current_fte not NULL\n");
     list_insert(&current_fte->elem, &fte->elem);
   }
 }
