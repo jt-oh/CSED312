@@ -29,13 +29,13 @@ bool swap_out (struct frame_table_entry *e){
     return false;
 
   // Store Frame Data into Swap slot
+	//printf("before block write in swap_out by %s %d\n", thread_current()->name, thread_current()->tid);
+  lock_acquire(&swap_lock);
   for (i=0; i<8; i++) {
-    lock_acquire(&swap_lock);
-		printf("before block write in swap_out by %s %d\n", thread_current()->name, thread_current()->tid);
     block_write(swap_slots, 8 * index + i, ((uintptr_t)e->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
-		printf("finish block write in swap_out by %s %d\n", thread_current()->name, thread_current()->tid);
-    lock_release(&swap_lock);
   }
+  lock_release(&swap_lock);
+	//printf("finish block write in swap_out by %s %d\n", thread_current()->name, thread_current()->tid);
 
   e->s_pte->location = LOC_SWAP;
   e->s_pte->slot_number = index;                           // store swap index
@@ -56,13 +56,13 @@ bool swap_in (struct sPage_table_entry *e){
 
 	//printf("1\n");
 
+	//printf("before block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
+  lock_acquire(&swap_lock);
   for(i=0; i<8; i++){            //Read block in Swap table 
-    lock_acquire(&swap_lock);
-		printf("before block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
     block_read(swap_slots, 8 * e->slot_number + i, kpage + BLOCK_SECTOR_SIZE * i);
-		printf("finish block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
-    lock_release(&swap_lock);
   }
+  lock_release(&swap_lock);
+	//printf("finish block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
 	//printf("2\n");
 
 	delete_swap_table_entry(e->slot_number);    // Set bitmap entry to 0

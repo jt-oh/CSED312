@@ -162,7 +162,7 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-	printf("page_fault at %p by %s %d!\n", fault_addr, thread_current()->name, thread_current()->tid);
+	//printf("page_fault at %p by %s %d!\n", fault_addr, thread_current()->name, thread_current()->tid);
   
 	/*printf ("Page fault at %p: %s error %s page in %s context.\n",
     fault_addr,
@@ -217,7 +217,7 @@ page_fault (struct intr_frame *f)
   	kill (f);
 	
 
-	printf("finish page_fault() at %p by %s %d\n", fault_addr, thread_current()->name, thread_current()->tid);
+	//printf("finish page_fault() at %p by %s %d\n", fault_addr, thread_current()->name, thread_current()->tid);
 }
 
 bool check_physical_memory ();
@@ -331,19 +331,22 @@ bool load_files(struct sPage_table_entry *e){
 		//printf("kpage %p file %p\n", kpage, e->file);
 
    /* Load this page. */
-   if(lock_held_by_current_thread(&file_lock)){
-	 		//printf("2\n");
+  // if(lock_held_by_current_thread(&file_lock)){
+	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
       success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
-		}
+	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
+/*		}
    else{
 			//printf("3\n");
 			//if(file_lock.holder)
 				//printf("%s\n", file_lock.holder->name);
+	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
       lock_acquire(&file_lock);   
       success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
       lock_release(&file_lock);
+	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
    }
-
+*/
 		//printf("4\n");
    if (!success)
    {
@@ -365,7 +368,7 @@ bool load_files(struct sPage_table_entry *e){
       return false; 
    }
 
-		printf("6\n");
+		//printf("6\n");
 
   
 		
