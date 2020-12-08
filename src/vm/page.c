@@ -216,57 +216,68 @@ void deallocate_mmap_file (struct mmap_file *mm_file){
   free(mm_file);
 }
 
-void pin_buffer(void *buffer){
+void pin_buffer(void *buffer, size_t read_bytes){
   struct sPage_table_entry *s_pte;
+  void *end = (uintptr_t)buffer + read_bytes;
+  int n = PG_NUM(end) - PG_NUM(buffer) + 1;
+  int i;
 
-  s_pte = find_s_pte(buffer);
-  ASSERT(s_pte != NULL);
+  for(i = 0; i < n; i++){
+    s_pte = find_s_pte((uintptr_t)buffer + i * PGSIZE);
+    ASSERT(s_pte != NULL);
 
-  if(s_pte->fte !=NULL){
-  	s_pte->fte->pin = true;
-    return;
-	}
-  
-  // Check whether free physical memory space remained 
-  if(!check_physical_memory()){
-    //printf("eviction occur!\n");
-    struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
-    //printf("candidate find!\n");
-    if(eviction->s_pte->type != TYPE_FILE){
-        if(!swap_out(eviction))                                      // Swap evicted frame into the swap table
-          Exit(-1);
-
-        //printf("swap out!\n");
+    if(s_pte->fte !=NULL){
+      s_pte->fte->pin = true;
+      return;
     }
-    else{
-        //printf("mmap_write_back ", TYPE_FILE);
-        mmap_write_back (eviction->s_pte);
+    
+    // Check whether free physical memory space remained 
+    if(!check_physical_memory()){
+      //printf("eviction occur!\n");
+      struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
+      //printf("candidate find!\n");
+      if(eviction->s_pte->type != TYPE_FILE){
+          if(!swap_out(eviction))                                      // Swap evicted frame into the swap table
+            Exit(-1);
+
+          //printf("swap out!\n");
+      }
+      else{
+          //printf("mmap_write_back ", TYPE_FILE);
+          mmap_write_back (eviction->s_pte);
+      }
+
+    // Deallocate Physical Memory and corresponding fte
+      palloc_free_page((uintptr_t)eviction->frame_number << 12);
+      pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
+      delete_frame_entry(eviction);
     }
 
-  // Deallocate Physical Memory and corresponding fte
-    palloc_free_page((uintptr_t)eviction->frame_number << 12);
-    pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
-    delete_frame_entry(eviction);
-  }
-
- 	switch(s_pte->location){      // Devide cases into where the Memory data's location is
+    switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
       case LOC_FILE:
           load_files(s_pte);
           break;
       case LOC_SWAP:
           swap_in(s_pte);
-         break;      
+          break;      
       default:
-	   		break;
+        break;
+    }
+    s_pte->fte->pin = true;
   }
-	s_pte->fte->pin = true;
 }
 
-void unpin_buffer(void *buffer){
-  struct sPage_table_entry *s_pte = find_s_pte(buffer);
+void unpin_buffer(void *buffer, size_t read_bytes){
+  struct sPage_table_entry *s_pte;
+  void *end = (uintptr_t)buffer + read_bytes;
+  int n = PG_NUM(end) - PG_NUM(buffer) + 1;
+  int i;
 
-  ASSERT (s_pte != NULL);
-
-  s_pte->fte->pin = false;
+  for(i = 0; i < n; i++){
+    s_pte = find_s_pte((uintptr_t)buffer + i * PGSIZE);
+    ASSERT (s_pte != NULL);
+    
+    s_pte->fte->pin = false;
+  }
 }

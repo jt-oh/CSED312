@@ -62,7 +62,7 @@ struct frame_table_entry *find_eviction_frame ();
 void delete_frame_entry (struct frame_table_entry *);
 void s_pte_fte_ste_deallocator (struct hash_elem *, void *);
 void deallocate_mmap_file (struct mmap_file *);
-void pin_buffer(void *);
-void unpin_buffer(void *);
+void pin_buffer(void *, size_t);
+void unpin_buffer(void *, size_t);
 
 #endif

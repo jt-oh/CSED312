@@ -301,13 +301,13 @@ bool Create (const char *file, unsigned initial_size){
 	//printf("Create() file %s!\n", file);
 
   // Create file with the given name file
-  pin_buffer(file);
+  pin_buffer(file, strlen(file));
 	lock_acquire(&file_lock);
 	//printf("%s\n", file);
   result = filesys_create(file, initial_size);
 	//printf("2\n");
 	lock_release (&file_lock);
-  unpin_buffer(file);
+  unpin_buffer(file, strlen(file));
 
 	return result;
 }
@@ -318,11 +318,11 @@ bool Remove (const char *file){
 	bool result;
 
   // Remove file with the given name file
-  pin_buffer(file);
+  pin_buffer(file, strlen(file));
 	lock_acquire(&file_lock);
-  result = filesys_remove(file);
+  result = filesys_remove(file, strlen(file));
 	lock_release(&file_lock);
-  unpin_buffer(file);
+  unpin_buffer(file, strlen(file));
 
 	return result;
 }
@@ -375,14 +375,14 @@ int Read (int fd, void *buffer, unsigned size){
       ((uint8_t *)buffer)[result] = input_getc();
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){            // Reading on other input case
-    pin_buffer(buffer);
+    pin_buffer(buffer, size);
   // acquire lock to guarantee mutual exclusion to the file access
   	lock_acquire(&file_lock);
 		//printf("before file_read at read!\n");
     result = file_read(file, buffer, size);
 		//printf("after file_read at read!\n");
   	lock_release(&file_lock);
-    unpin_buffer(buffer);
+    unpin_buffer(buffer, size);
   }
   else{                             // Exception case
     result = -1;
@@ -403,14 +403,14 @@ int Write (int fd, const void * buffer, unsigned size){
     result = size;
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){              // Writing on other output case
-    pin_buffer(buffer);
+    pin_buffer(buffer, size);
   	// acquire lock to guarantee mutual exclusion to the file access
   	lock_acquire(&file_lock);
 		//printf("before file_write at write!\n");
     result = file_write(file, buffer, size);
 		//printf("after file_write at write!\n");
   	lock_release(&file_lock);
-    unpin_buffer(buffer);
+    unpin_buffer(buffer, size);
   }
   else{                               // Exception case
     result = -1;
