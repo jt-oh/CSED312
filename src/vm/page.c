@@ -222,10 +222,10 @@ void pin_buffer(void *buffer){
   s_pte = find_s_pte(buffer);
   ASSERT(s_pte != NULL);
 
-  s_pte->fte->pin = true;
-
-  if(s_pte->fte !=NULL)
+  if(s_pte->fte !=NULL){
+  	s_pte->fte->pin = true;
     return;
+	}
   
   // Check whether free physical memory space remained 
   if(!check_physical_memory()){
@@ -241,7 +241,6 @@ void pin_buffer(void *buffer){
     else{
         //printf("mmap_write_back ", TYPE_FILE);
         mmap_write_back (eviction->s_pte);
-        // type == mmapped file
     }
 
   // Deallocate Physical Memory and corresponding fte
@@ -250,7 +249,7 @@ void pin_buffer(void *buffer){
     delete_frame_entry(eviction);
   }
 
- switch(s_pte->location){      // Devide cases into where the Memory data's location is
+ 	switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
       case LOC_FILE:
           load_files(s_pte);
@@ -260,8 +259,8 @@ void pin_buffer(void *buffer){
          break;      
       default:
 	   		break;
-   }
-
+  }
+	s_pte->fte->pin = true;
 }
 
 void unpin_buffer(void *buffer){

@@ -162,7 +162,7 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-	//printf("page_fault!\n");
+	//printf("page_fault at %p!\n", fault_addr);
   
 	/*printf ("Page fault at %p: %s error %s page in %s context.\n",
     fault_addr,
