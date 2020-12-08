@@ -31,7 +31,9 @@ bool swap_out (struct frame_table_entry *e){
   // Store Frame Data into Swap slot
   for (i=0; i<8; i++) {
     lock_acquire(&swap_lock);
+		printf("before block write in swap_out by %s %d\n", thread_current()->name, thread_current()->tid);
     block_write(swap_slots, 8 * index + i, ((uintptr_t)e->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
+		printf("finish block write in swap_out by %s %d\n", thread_current()->name, thread_current()->tid);
     lock_release(&swap_lock);
   }
 
@@ -52,18 +54,20 @@ bool swap_in (struct sPage_table_entry *e){
   if(kpage == NULL)
     return false;
 
-	printf("1\n");
+	//printf("1\n");
 
   for(i=0; i<8; i++){            //Read block in Swap table 
     lock_acquire(&swap_lock);
+		printf("before block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
     block_read(swap_slots, 8 * e->slot_number + i, kpage + BLOCK_SECTOR_SIZE * i);
+		printf("finish block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
     lock_release(&swap_lock);
   }
-	printf("2\n");
+	//printf("2\n");
 
 	delete_swap_table_entry(e->slot_number);    // Set bitmap entry to 0
   
-	printf("3\n");
+	//printf("3\n");
 
   if (!install_page ((uintptr_t)e->page_number << 12, kpage, e->writable)) {  // Bring Swap table entry to Physical memory
     palloc_free_page (kpage);
@@ -85,11 +89,11 @@ bool swap_in (struct sPage_table_entry *e){
   fte->thread = thread_current();
   fte->pin = false;
 
-	printf("4\n");
+	//printf("4\n");
 		
   insert_frame(fte);     // Insert new frame table entry into frame_table\
 
-	printf("5\n");
+	//printf("5\n");
 
   return true;
 }

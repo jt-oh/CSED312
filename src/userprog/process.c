@@ -227,7 +227,7 @@ process_exit (void)
   }
 	// End SOS Implementation
 
-	printf("process_exit() deallocate mmap_file\n");
+	//printf("process_exit() deallocate mmap_file\n");
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -246,7 +246,7 @@ process_exit (void)
       pagedir_destroy (pd);
     }
 
-	printf("process_exit afte pagedir_destroy\n");
+	//printf("process_exit afte pagedir_destroy\n");
   
   /* SOS Implementation project 2*/
   if(cur->running_file != NULL){         // if there exists executable, 
@@ -259,13 +259,13 @@ process_exit (void)
   for(i=2; i<cur->fd; i++)              // Close all fd in the exiting process
     process_close_file(i);
 
-	printf("before hash_destroy\n");
+	//printf("before hash_destroy\n");
 
   // Project 3 Deallocate sPage table
   hash_destroy(&cur->sPage_table, s_pte_fte_ste_deallocator);
   /*End SOS Implementation */
 
-	printf("after hash_destroy\n");
+	//printf("after hash_destroy\n");
 }
 
 /* Sets up the CPU for running user code in the current

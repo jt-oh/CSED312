@@ -162,7 +162,7 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-	printf("page_fault at %p!\n", fault_addr);
+	printf("page_fault at %p by %s %d!\n", fault_addr, thread_current()->name, thread_current()->tid);
   
 	/*printf ("Page fault at %p: %s error %s page in %s context.\n",
     fault_addr,
@@ -210,14 +210,14 @@ page_fault (struct intr_frame *f)
       kill (f);
   }
   
-	printf("before page_fault_handler!\n");
+	//printf("before page_fault_handler!\n");
 
 
 	if(!page_fault_handler(fault_addr, s_pte))
   	kill (f);
 	
 
-	printf("finish page_fault() at %p\n", fault_addr);
+	printf("finish page_fault() at %p by %s %d\n", fault_addr, thread_current()->name, thread_current()->tid);
 }
 
 bool check_physical_memory ();
@@ -235,9 +235,9 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
 
    // Check whether free physical memory space remained 
    if(!check_physical_memory()){
-	 		printf("eviction occur!\n");
+	 		//printf("eviction occur!\n");
       struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
-			printf("candidate find!\n");
+			//printf("candidate find!\n");
       if(eviction->s_pte->type == TYPE_EXEC){
          if(!swap_out(eviction))                                       // Swap evicted frame into the swap table
 						return false;
@@ -260,8 +260,8 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
 			ASSERT (check_physical_memory());
    }
 
-	 printf("finish eviction!\n");
-	 printf("type %d, loc %d\n", s_pte->type, s_pte->location);
+	 //printf("finish eviction!\n");
+	 //printf("type %d, loc %d\n", s_pte->type, s_pte->location);
 
    switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
@@ -273,18 +273,18 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
             break;
          }
       case LOC_FILE:
-         printf("before load_file!\n");
+         //printf("before load_file!\n");
          result = load_files(s_pte);
          break;
       case LOC_SWAP:
-					printf("before swap_in!\n");
+					//printf("before swap_in!\n");
          result = swap_in(s_pte);
          break;      
       default:
 	   		break;
    }
 
-	 printf("finish page_fault_handler with %d\n", result);
+	 //printf("finish page_fault_handler with %d\n", result);
    return result;
 }
 
@@ -308,7 +308,7 @@ bool load_files(struct sPage_table_entry *e){
    if (kpage == NULL)
       return false;
 
-		printf("1\n");
+		//printf("1\n");
 
    /* Get a fte of memory. */
    fte = (struct frame_table_entry *)malloc(sizeof(struct frame_table_entry));
@@ -328,15 +328,15 @@ bool load_files(struct sPage_table_entry *e){
    fte->thread = thread_current();
    fte->pin = false;
 
-		printf("kpage %p file %p\n", kpage, e->file);
+		//printf("kpage %p file %p\n", kpage, e->file);
 
    /* Load this page. */
    if(lock_held_by_current_thread(&file_lock)){
-	 		printf("2\n");
+	 		//printf("2\n");
       success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
 		}
    else{
-			printf("3\n");
+			//printf("3\n");
 			//if(file_lock.holder)
 				//printf("%s\n", file_lock.holder->name);
       lock_acquire(&file_lock);   
@@ -344,7 +344,7 @@ bool load_files(struct sPage_table_entry *e){
       lock_release(&file_lock);
    }
 
-		printf("4\n");
+		//printf("4\n");
    if (!success)
    {
       palloc_free_page (kpage);
@@ -354,7 +354,7 @@ bool load_files(struct sPage_table_entry *e){
 		//printf("3\n");
    memset (kpage + e->read_bytes, 0, e->zero_bytes);
 
-		printf("5\n");
+		//printf("5\n");
 
    /* Add the page to the process's address space. */
    if (!install_page (((uintptr_t)e->page_number << 12), kpage, e->writable)) 

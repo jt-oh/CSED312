@@ -85,15 +85,18 @@ void insert_frame(struct frame_table_entry *fte){                      // insert
   ASSERT(fte != NULL);
 
   if(current_fte == NULL){                     // Frame table is empty
-    printf("current_fte NULL\n");
+    //printf("current_fte NULL\n");
 		list_push_front(&frame_table, &fte->elem);
     current_fte = fte;
 		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
   }
   else{      
-    printf("current_fte not NULL\n");
+    //printf("current_fte not NULL\n");
+		//printf("current_fte frame %p\n", current_fte);
+		//printf("fte frame %p\n", fte->frame_number);
     list_insert(&current_fte->elem, &fte->elem);
   }
+	//printf("insert_frame finish!\n");
 }
 
 struct frame_table_entry *find_eviction_frame(){
@@ -148,6 +151,9 @@ void delete_frame_entry (struct frame_table_entry *e){
   // Delete Frame table entry from frame table and Deallocate frame table entry
   list_remove(&e->elem);              
   free(e);                            
+
+	if(list_empty(&frame_table))
+		current_fte = NULL;
 }
 
 void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
