@@ -333,18 +333,18 @@ bool load_files(struct sPage_table_entry *e){
    /* Load this page. */
   // if(lock_held_by_current_thread(&file_lock)){
 	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-      success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
+      //success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
 	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
 /*		}
    else{
 			//printf("3\n");
 			//if(file_lock.holder)
 				//printf("%s\n", file_lock.holder->name);
-	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
+	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);*/
       lock_acquire(&file_lock);   
       success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
       lock_release(&file_lock);
-	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
+	 		/*printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
    }
 */
 		//printf("4\n");
