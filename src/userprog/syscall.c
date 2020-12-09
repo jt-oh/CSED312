@@ -47,7 +47,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   // get syscall number
   number = *(int *)f->esp;
 
-	printf("syscall_handler with number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
+	//printf("syscall_handler with number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
 
   // assign to each syscall handler func
   switch(number){
@@ -192,7 +192,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             f->eax = result;
   }
 
-	printf("end syscall_handler with syscall number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
+	//printf("end syscall_handler with syscall number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
 }
 
 bool isValid_Vaddr (void *addr){
@@ -226,6 +226,8 @@ bool check_writable(void *buffer){
   struct sPage_table_entry *s_pte;
 
 	s_pte = find_s_pte((uintptr_t)buffer);
+	if(s_pte == NULL)
+		return false;
 
 	return s_pte->writable;
 }
@@ -575,6 +577,8 @@ mapid_t Mmap(int fd, void *addr){
     if(s_pte == NULL || find_s_pte(upage)){
 			//printf("5\n");
 			deallocate_mmap_file(mm_file);
+			if(s_pte != NULL)
+				free(s_pte);
 			//printf("s_pte %p with page %p\n", s_pte, upage);
       return -1;
 		}

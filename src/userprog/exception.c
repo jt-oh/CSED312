@@ -25,6 +25,8 @@ static long long page_fault_cnt;
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
 
+static void check_stack_growth (uintptr_t, void *);
+
 /* Registers handlers for interrupts that can be caused by user
    programs.
 
@@ -140,8 +142,6 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
-  uintptr_t esp_growth;
-  struct sPage_table_entry *s_pte;
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -166,43 +166,22 @@ page_fault (struct intr_frame *f)
 
 	//printf("page_fault at %p by %s %d in %s constext!\n", fault_addr, thread_current()->name, thread_current()->tid, user ? "user" : "kernel");
   
-	printf ("Page fault at %p: %s error %s page in %s context by %s %d.\n",
+	/*printf ("Page fault at %p: %s error %s page in %s context by %s %d.\n",
     fault_addr,
     not_present ? "not present" : "rights violation",
     write ? "writing" : "reading",
     user ? "user" : "kernel",
 		thread_current()->name,
-		thread_current()->tid);
+		thread_current()->tid);*/
 		
+	// check stack growth
+	check_stack_growth(f->esp, fault_addr);
 
 	if(!not_present)
-		Exit(-1);
+		kill(f);
 
+	if(!find_s_pte(fault_addr) || !is_user_vaddr(fault_addr)){
 
-	//printf("f->esp %p, fault_addr %p\n", f->esp, fault_addr);
-   if((uintptr_t)f->esp >= (uintptr_t)fault_addr){
-      esp_growth = (uintptr_t)f->esp - 4 * 1024;
-
-      if((uintptr_t)PHYS_BASE - 8 * 1024 * 1024 > esp_growth)
-         kill (f);
-      else if(esp_growth < (uintptr_t)fault_addr){
-			//	printf("make s_pte for new stack region\n");
-         s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));
-         s_pte->type = TYPE_STACK;                                       // Initialize s_pte
-         s_pte->location = LOC_NONE;                                    // Current location is in Physical memory
-         s_pte->page_number = PG_NUM(fault_addr);
-         s_pte->writable = true;
-         s_pte->file = NULL;
-         s_pte->fte = NULL;
-         s_pte->offset = 0;
-         s_pte->read_bytes = 0;
-         s_pte->zero_bytes = PGSIZE;
-
-         hash_insert(&thread_current()->sPage_table, &s_pte->elem);
-      }
-   }
-	//printf("spte %p, find spte %p, is user vaddr %d\n",s_pte, find_s_pte(fault_addr), is_user_vaddr((uint8_t *)f->esp - PGSIZE));
-  if((!find_s_pte(fault_addr) || !is_user_vaddr(fault_addr)) && s_pte ==NULL){
       /* To implement virtual memory, delete the rest of the function
          body, and replace it with code that brings in the page to
          which fault_addr refers. */
@@ -217,16 +196,14 @@ page_fault (struct intr_frame *f)
 	//printf("before page_fault_handler!\n");
 
 
-	if(!page_fault_handler(fault_addr, s_pte))
+	if(!page_fault_handler(fault_addr))
   	kill (f);
 	
 
-	printf("finish page_fault() at %p by %s %d in %s context\n", fault_addr, thread_current()->name, thread_current()->tid, user ? "user" : "kernel");
+	//printf("finish page_fault() at %p by %s %d in %s context\n", fault_addr, thread_current()->name, thread_current()->tid, user ? "user" : "kernel");
 }
 
-bool check_physical_memory ();
-
-bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
+bool page_fault_handler (void *vaddr){
    //ASSERT (find_s_pte(vaddr) && is_user_vaddr(vaddr));
 	//ASSERT (find_s_pte(vaddr))
    struct sPage_table_entry *s_pte;
@@ -234,12 +211,14 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
    bool result;
 
    s_pte = find_s_pte(vaddr);
+	 if(s_pte == NULL)
+	 	return NULL;
 
-	 if(s_pte == NULL){
+	 /*if(s_pte == NULL){
 			if(e == NULL)
 				return false;
 	 		s_pte = e;
-		}
+		}*/
 
 	//printf("before frame alloc!\n");
 
@@ -276,16 +255,6 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
    return result;
 }
 
-bool check_physical_memory(){                 // Check whether free physical memory space remained 
-   uint8_t *check = palloc_get_page(PAL_USER);
-
-   if(check == NULL)
-      return false;
-   
-   palloc_free_page (check);
-   return true;
-}
-
 bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
    bool success;
    
@@ -307,21 +276,21 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
 		//printf("kpage %p file %p\n", kpage, e->file);
 
    /* Load this page. */
-   /*if(lock_held_by_current_thread(&file_lock)){
+   if(lock_held_by_current_thread(&file_lock)){
 	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
       success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
 	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
 		}
-   else{*/
+   else{
 			//printf("3\n");
 			//if(file_lock.holder)
 				//printf("%s\n", file_lock.holder->name);
 	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);*/
-      //lock_acquire(&file_lock);   
+      lock_acquire(&file_lock);   
       success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
-      //lock_release(&file_lock);
+      lock_release(&file_lock);
 	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-   //}
+   }
 
 		//printf("4\n");
    if (!success)
@@ -384,3 +353,33 @@ bool stack_growth(struct sPage_table_entry *s_pte, struct frame_table_entry *fte
    return true;
 }
 
+static void check_stack_growth (uintptr_t esp, void *vaddr){
+  uintptr_t esp_growth;
+  struct sPage_table_entry *s_pte;
+	//printf("f->esp %p, fault_addr %p\n", f->esp, fault_addr);
+
+  if(esp >= (uintptr_t)vaddr){
+    esp_growth = esp - PGSIZE;
+
+    if((uintptr_t)PHYS_BASE - 8 * 1024 * 1024 > esp_growth)
+       return;
+    else if(esp_growth < (uintptr_t)vaddr){
+			//	printf("make s_pte for new stack region\n");
+       s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));
+			 if(s_pte == NULL)
+			 	return;
+
+       s_pte->type = TYPE_STACK;                                       // Initialize s_pte
+       s_pte->location = LOC_NONE;                                    // Current location is in Physical memory
+       s_pte->page_number = PG_NUM(vaddr);
+       s_pte->writable = true;
+       s_pte->file = NULL;
+       s_pte->fte = NULL;
+       s_pte->offset = 0;
+       s_pte->read_bytes = 0;
+       s_pte->zero_bytes = PGSIZE;
+
+       hash_insert(&thread_current()->sPage_table, &s_pte->elem);
+     }
+  }
+}

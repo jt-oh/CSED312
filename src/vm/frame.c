@@ -121,8 +121,6 @@ void remove_frame_entry (struct frame_table_entry *fte){
 
   // Delete Frame table entry from frame table and Deallocate frame table entry
   list_remove(&fte->elem); 
-
-  fte->s_pte->fte = NULL;
   
 	if(list_empty(&frame_table))
 		current_fte = NULL;
@@ -133,14 +131,19 @@ struct frame_table_entry *frame_alloc(){
   struct frame_table_entry *fte;
 
   lock_acquire(&frame_table_lock);
+
+  /* Get a page of memory. */
+  kpage = palloc_get_page (PAL_USER);
   
-  if(!check_physical_memory()){
+  if(kpage == NULL){
 	 	//printf("eviction occur!\n");
     struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
 		//printf("candidate find!\n");
     if(eviction->s_pte->type == TYPE_EXEC){
-      if(!swap_out(eviction))                                       // Swap evicted frame into the swap table
-        return false;
+      if(!swap_out(eviction)){                                       // Swap evicted frame into the swap table
+				lock_release(&frame_table_lock);
+				return false;
+			}
 
         //printf("swap out fail!\n");
     }
@@ -149,7 +152,8 @@ struct frame_table_entry *frame_alloc(){
       mmap_write_back (eviction->s_pte);
       // type == mmapped file
     }
-
+	
+	  eviction->s_pte->fte = NULL;
 			//printf("1\n");
 
 		// Deallocate Physical Memory and corresponding fte
@@ -158,19 +162,15 @@ struct frame_table_entry *frame_alloc(){
     pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
 
 		fte = eviction;
+		fte->s_pte = NULL;
+		fte->thread = NULL;
   }
   else{
-    /* Get a page of memory. */
-    kpage = palloc_get_page (PAL_USER);
-    if (kpage == NULL)
-        return NULL;
-
-      //printf("1\n");
-
     /* Get a fte of memory. */
     fte = (struct frame_table_entry *)malloc(sizeof(struct frame_table_entry));
     if (fte == NULL){
         palloc_free_page(kpage);
+				lock_release(&frame_table_lock);
         return NULL;
     }
 
