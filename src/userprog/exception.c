@@ -15,6 +15,8 @@
 #include "userprog/process.h"
 #include "threads/pte.h"
 #include "vm/swap.h"
+#include "vm/frame.h"
+#include "userprog/pagedir.h"
 // End SOS Implementation project 3
 
 /* Number of page faults processed. */
@@ -253,9 +255,9 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
 			//printf("1\n");
 
 		// Deallocate Physical Memory and corresponding fte
-			palloc_free_page((uintptr_t)eviction->frame_number << 12);
-			pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
-      delete_frame_entry(eviction);
+			// palloc_free_page((uintptr_t)eviction->frame_number << 12);
+			// pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
+         delete_frame_entry(eviction, false);
 
 			ASSERT (check_physical_memory());
    }

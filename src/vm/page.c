@@ -5,10 +5,6 @@
 #include "userprog/syscall.h"
 #include "userprog/exception.h"
 
-struct list frame_table;
-
-static struct frame_table_entry *current_fte;        // current position in clock algorithm
-
 unsigned get_hash(unsigned page_number){      // Get Hash value with page number
 	return page_number % 1024;
 }
@@ -81,81 +77,6 @@ struct sPage_table_entry *find_s_pte (void *vaddr){
   return NULL;                                      // Case: Can't find vaddr in sPage_table
 }
 
-void insert_frame(struct frame_table_entry *fte){                      // insert frame_table_entry before currnet_position
-  ASSERT(fte != NULL);
-
-  if(current_fte == NULL){                     // Frame table is empty
-    //printf("current_fte NULL\n");
-		list_push_front(&frame_table, &fte->elem);
-    current_fte = fte;
-		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
-  }
-  else{      
-    //printf("current_fte not NULL\n");
-		//printf("current_fte frame %p\n", current_fte);
-		//printf("fte frame %p\n", fte->frame_number);
-    list_insert(&current_fte->elem, &fte->elem);
-  }
-	//printf("insert_frame finish!\n");
-}
-
-struct frame_table_entry *find_eviction_frame(){
-  struct thread *t;
-  struct frame_table_entry *result;
-
-	ASSERT ( current_fte != NULL );
-  
-  // Find eviction candidate
-  while(1){
-    t = current_fte->thread;
-		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
-   
-    if (!pagedir_is_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12) && current_fte->pin == false){
-      //printf("1\n");
-      break;
-    }
-    else{ 
-      pagedir_set_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12, false);
-      //printf("2\n");
-
-      // If current_fte arrives to the end of the frame table, set it to the start of the table
-      if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
-        current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
-      else
-        current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);
-    }
-  }
-  result = current_fte;
-	//printf("find eviction candidate in find_eviction_frame\n");
-  
-  // Increment current_fte
-  if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
-    current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
-  else
-    current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);
-    
-  return result;
-}
-
-void delete_frame_entry (struct frame_table_entry *e){
-  ASSERT (e != NULL);
-
-  // If current_fte == deletion frame entry, move next to the current_fte
-  if(current_fte == e){               
-    if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
-      current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
-    else
-      current_fte = list_entry(list_begin(&frame_table), struct frame_table_entry, elem);  
-  }
-
-  // Delete Frame table entry from frame table and Deallocate frame table entry
-  list_remove(&e->elem);              
-  free(e);                            
-
-	if(list_empty(&frame_table))
-		current_fte = NULL;
-}
-
 void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
   ASSERT (e != NULL);
 
@@ -224,51 +145,44 @@ void deallocate_mmap_file (struct mmap_file *mm_file){
 
 void pin_buffer(void *buffer, size_t read_bytes){
   struct sPage_table_entry *s_pte;
+  struct frame_table *fte;
   void *end = (uintptr_t)buffer + read_bytes;
   int n = PG_NUM(end) - PG_NUM(buffer) + 1;
   int i;
 
   for(i = 0; i < n; i++){
-    s_pte = find_s_pte((uintptr_t)buffer + i * PGSIZE);
-    ASSERT(s_pte != NULL);
+    s_pte = find_s_pte(buffer);
 
-    if(s_pte->fte !=NULL){
-      s_pte->fte->pin = true;
-      return;
-    }
-    
     // Check whether free physical memory space remained 
-    if(!check_physical_memory()){
-      //printf("eviction occur!\n");
-      struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
-      //printf("candidate find!\n");
-      if(eviction->s_pte->type != TYPE_FILE){
-          if(!swap_out(eviction))                                      // Swap evicted frame into the swap table
-            Exit(-1);
+    fte = frame_alloc();
+    if(fte == NULL)
+      Exit(-1);
 
-          //printf("swap out!\n");
-      }
-      else{
-          //printf("mmap_write_back ", TYPE_FILE);
-          mmap_write_back (eviction->s_pte);
-      }
-
-    // Deallocate Physical Memory and corresponding fte
-      palloc_free_page((uintptr_t)eviction->frame_number << 12);
-      pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
-      delete_frame_entry(eviction);
-    }
+	  //printf("finish eviction!\n");
+	  //printf("type %d, loc %d\n", s_pte->type, s_pte->location);
 
     switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
-      case LOC_FILE:
-          load_files(s_pte);
+        if(s_pte->type == TYPE_STACK){
+				 		//printf("before stack growth\n");
+          if(!stack_growth(s_pte, fte))
+            Exit(-1);
+						//printf("come back from stack grow\n");
+
           break;
-      case LOC_SWAP:
-          swap_in(s_pte);
-          break;      
-      default:
+        }
+      case LOC_FILE:
+         //printf("before load_file!\n");
+        if(!load_files(s_pte, fte))
+          Exit(-1);
         break;
+      case LOC_SWAP:
+					//printf("before swap_in!\n");
+        if(!swap_in(s_pte, fte))
+          Exit(-1);
+        break;      
+      default:
+	   		break;
     }
     s_pte->fte->pin = true;
   }

@@ -4,6 +4,7 @@
 #include "devices/block.h"
 #include <stdbool.h>
 #include "vm/page.h"
+#include "vm/frame.h"
 
 void swap_init ();
 size_t find_empty_swap_slot (); 

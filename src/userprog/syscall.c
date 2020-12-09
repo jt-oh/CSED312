@@ -14,7 +14,6 @@
 // End SOS Implementation
 
 
-
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 
