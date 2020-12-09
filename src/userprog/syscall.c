@@ -374,20 +374,20 @@ int Read (int fd, void *buffer, unsigned size){
       ((uint8_t *)buffer)[result] = input_getc();
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){            // Reading on other input case	
-		printf("before file_read at read!\n");
+		//printf("before file_read at read!\n");
 
     pin_buffer(buffer, size);
-		printf("1 %p\n", file_lock.holder);
+		//printf("1 %p\n", file_lock.holder);
   // acquire lock to guarantee mutual exclusion to the file access
   	lock_acquire(&file_lock);
-		printf("2\n");
+		//printf("2\n");
     result = file_read(file, buffer, size);
-		printf("3\n");
+		//printf("3\n");
   	lock_release(&file_lock);
-		printf("4\n");
+		//printf("4\n");
     unpin_buffer(buffer, size);
 
-		printf("after file_read at read!\n");
+		//printf("after file_read at read!\n");
   }
   else{                             // Exception case
     result = -1;
@@ -630,6 +630,8 @@ void Munmap(mapid_t mapid){
   ASSERT (t != NULL);
 
 	//printf("start Munmap()\n");
+	if(list_empty(&t->mmap_table))
+		return;
 
   // find correponding mmap instance in mmap table 
   for(e = list_begin(&t->mmap_table); e != list_end(&t->mmap_table); list_next(e)){

@@ -164,13 +164,15 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-	printf("page_fault at %p by %s %d!\n", fault_addr, thread_current()->name, thread_current()->tid);
+	//printf("page_fault at %p by %s %d in %s constext!\n", fault_addr, thread_current()->name, thread_current()->tid, user ? "user" : "kernel");
   
-	/*printf ("Page fault at %p: %s error %s page in %s context.\n",
+	printf ("Page fault at %p: %s error %s page in %s context by %s %d.\n",
     fault_addr,
     not_present ? "not present" : "rights violation",
     write ? "writing" : "reading",
-    ser ? "user" : "kernel");*/
+    user ? "user" : "kernel",
+		thread_current()->name,
+		thread_current()->tid);
 		
 
 	if(!not_present)
@@ -219,7 +221,7 @@ page_fault (struct intr_frame *f)
   	kill (f);
 	
 
-	printf("finish page_fault() at %p by %s %d\n", fault_addr, thread_current()->name, thread_current()->tid);
+	printf("finish page_fault() at %p by %s %d in %s context\n", fault_addr, thread_current()->name, thread_current()->tid, user ? "user" : "kernel");
 }
 
 bool check_physical_memory ();
@@ -233,8 +235,11 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
 
    s_pte = find_s_pte(vaddr);
 
-	 if(s_pte == NULL)
+	 if(s_pte == NULL){
+			if(e == NULL)
+				return false;
 	 		s_pte = e;
+		}
 
 	//printf("before frame alloc!\n");
 
@@ -302,21 +307,21 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
 		//printf("kpage %p file %p\n", kpage, e->file);
 
    /* Load this page. */
-   if(lock_held_by_current_thread(&file_lock)){
+   /*if(lock_held_by_current_thread(&file_lock)){
 	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
       success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
 	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
 		}
-   else{
+   else{*/
 			//printf("3\n");
 			//if(file_lock.holder)
 				//printf("%s\n", file_lock.holder->name);
 	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);*/
-      lock_acquire(&file_lock);   
+      //lock_acquire(&file_lock);   
       success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
-      lock_release(&file_lock);
+      //lock_release(&file_lock);
 	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-   }
+   //}
 
 		//printf("4\n");
    if (!success)
@@ -353,9 +358,10 @@ bool stack_growth(struct sPage_table_entry *s_pte, struct frame_table_entry *fte
    ASSERT (fte != NULL);
    bool success;
 
-
 	//printf("before install page\n");
    success = install_page ((uintptr_t)s_pte->page_number << 12, (uintptr_t)fte->frame_number << 12, true);
+
+   memset (((uintptr_t)fte->frame_number << 12) + s_pte->read_bytes, 0, s_pte->zero_bytes);
 	//printf("after install page\n");
    if(success){
 	 		//printf("install page success!\n");

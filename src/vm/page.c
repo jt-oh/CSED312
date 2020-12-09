@@ -90,7 +90,7 @@ void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
   if(s_pte->location == LOC_PHYS)
     delete_frame_entry(s_pte->fte);
   else if(s_pte->location == LOC_SWAP)
-    delete_swap_table_entry(s_pte->slot_number, true);
+    delete_swap_table_entry(s_pte->slot_number);
 
   // Deallocate s_pte
   free(s_pte);
@@ -151,7 +151,16 @@ void pin_buffer(void *buffer, size_t read_bytes){
   int i;
 
   for(i = 0; i < n; i++){
-    s_pte = find_s_pte(buffer);
+    s_pte = find_s_pte((uintptr_t)buffer + i * PGSIZE);
+		if(s_pte == NULL)
+			Exit(-1);
+
+		if(s_pte->location == LOC_PHYS){
+			s_pte->fte->pin = true;
+			continue;
+
+			NOT_REACHED();
+		}
 
     // Check whether free physical memory space remained 
     fte = frame_alloc();
@@ -185,6 +194,7 @@ void pin_buffer(void *buffer, size_t read_bytes){
 	   		break;
     }
     s_pte->fte->pin = true;
+		//printf("pin %p by %s %d\n", s_pte->page_number, thread_current()->name, thread_current()->tid);
   }
 }
 
@@ -197,6 +207,7 @@ void unpin_buffer(void *buffer, size_t read_bytes){
   for(i = 0; i < n; i++){
     s_pte = find_s_pte((uintptr_t)buffer + i * PGSIZE);
     ASSERT (s_pte != NULL);
+		ASSERT (s_pte->fte != NULL);
     
     s_pte->fte->pin = false;
   }

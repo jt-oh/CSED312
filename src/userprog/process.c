@@ -43,6 +43,9 @@ process_execute (const char *file_name)
   char *token;      
   char *next_ptr;    
   // End SOS Implementation
+	
+
+	hi = true;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -747,6 +750,9 @@ struct thread *get_child_process(tid_t tid){
   struct list_elem *e;
 
   ASSERT (t != NULL);
+
+	if(list_empty(&t->child_list))
+		return NULL;
 
   // Find the child thread which has the same tid in child_list
   for(e = list_begin(&t->child_list); e != list_end(&t->child_list); e = list_next(e)){

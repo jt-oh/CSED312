@@ -23,6 +23,8 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+bool hi = false;
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -840,6 +842,10 @@ void insert_to_alarmCall_list(int64_t time_to_wake){
 void multiple_priority_donation (struct thread *holder){
   struct thread *t = thread_current();
   ASSERT ( t != NULL );
+	ASSERT (holder != NULL);
+
+	//if(hi)
+		//printf("Hi! I'm multiple donation!\n");
 
   holder->priority = t->priority;
   list_insert_ordered(&holder->donation_list, &t->donation_elem, cmp_donation_priority, NULL);
@@ -852,8 +858,14 @@ void nested_priority_donation (struct thread *holder){
 
   ASSERT ( t != NULL );
   ASSERT ( c != NULL );
+	ASSERT ( holder != NULL);
+
+	//if(hi)
+		//printf("Hi! I'm nested donation!\n");
 
   for(i = 0; i < 7 && t->waiting_lock; i++){
+		if(t->waiting_lock->holder == NULL)
+			return;
     t->waiting_lock->holder->priority = c->priority;
     t = t->waiting_lock->holder;
   }

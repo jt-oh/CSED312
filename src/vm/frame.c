@@ -44,6 +44,11 @@ void progress_current_fte(){
 
   ASSERT(lock_held_by_current_thread(&frame_table_lock));
 
+	if(list_empty(&frame_table)){
+		current_fte = NULL;
+		return;
+	}
+
   if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
     current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
   else
