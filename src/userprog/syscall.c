@@ -47,7 +47,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   // get syscall number
   number = *(int *)f->esp;
 
-	//printf("syscall_handler with number %d by thread %s\n", number, thread_current()->name);
+	printf("syscall_handler with number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
 
   // assign to each syscall handler func
   switch(number){
@@ -192,7 +192,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             f->eax = result;
   }
 
-	//printf("end syscall_handler with syscall number %d by thread %s\n", number, thread_current()->name);
+	printf("end syscall_handler with syscall number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
 }
 
 bool isValid_Vaddr (void *addr){
@@ -373,15 +373,21 @@ int Read (int fd, void *buffer, unsigned size){
     for(result = 0; result < size; result++)
       ((uint8_t *)buffer)[result] = input_getc();
   }
-  else if(file != NULL && fd > 1 && fd < thread_current()->fd){            // Reading on other input case
+  else if(file != NULL && fd > 1 && fd < thread_current()->fd){            // Reading on other input case	
+		printf("before file_read at read!\n");
+
     pin_buffer(buffer, size);
+		printf("1 %p\n", file_lock.holder);
   // acquire lock to guarantee mutual exclusion to the file access
   	lock_acquire(&file_lock);
-		//printf("before file_read at read!\n");
+		printf("2\n");
     result = file_read(file, buffer, size);
-		//printf("after file_read at read!\n");
+		printf("3\n");
   	lock_release(&file_lock);
+		printf("4\n");
     unpin_buffer(buffer, size);
+
+		printf("after file_read at read!\n");
   }
   else{                             // Exception case
     result = -1;

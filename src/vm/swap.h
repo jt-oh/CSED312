@@ -10,6 +10,6 @@ void swap_init ();
 size_t find_empty_swap_slot (); 
 bool swap_out (struct frame_table_entry *);
 bool swap_in (struct sPage_table_entry *, struct frame_table_entry *);  
-void delete_swap_table_entry(uint32_t);
+void delete_swap_table_entry(uint32_t, bool);
 
 #endif

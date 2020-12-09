@@ -90,7 +90,7 @@ void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
   if(s_pte->location == LOC_PHYS)
     delete_frame_entry(s_pte->fte);
   else if(s_pte->location == LOC_SWAP)
-    delete_swap_table_entry(s_pte->slot_number);
+    delete_swap_table_entry(s_pte->slot_number, true);
 
   // Deallocate s_pte
   free(s_pte);

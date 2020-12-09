@@ -220,19 +220,19 @@ lock_acquire (struct lock *lock)
 
   // SOS Implementation
   if(!thread_mlfqs)
-    if(lock->holder){
-      thread_current()->waiting_lock = lock;
+    if(lock->holder != NULL){
       multiple_priority_donation(lock->holder);
       nested_priority_donation(lock->holder);
     }
-
+  thread_current()->waiting_lock = lock;
   // End SOS Implementation
 
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+	//printf("lock acquire %s %d\n", thread_current()->name, thread_current()->tid);
 
   // SOS Implementation
-  if(thread_current()->waiting_lock == lock)
+  //if(thread_current()->waiting_lock == lock)
     thread_current()->waiting_lock = NULL;
 
   // End SOS Implementation

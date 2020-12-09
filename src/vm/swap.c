@@ -57,12 +57,12 @@ bool swap_in (struct sPage_table_entry *e, struct frame_table_entry *fte){
   lock_acquire(&swap_table_lock);
   
   for(i=0; i<8; i++){            //Read block in Swap table 
-    block_read(swap_slots, 8 * e->slot_number + i, (uintptr_t)fte->frame_number << 12 + BLOCK_SECTOR_SIZE * i);
+    block_read(swap_slots, 8 * e->slot_number + i, ((uintptr_t)fte->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
   }
 	//printf("finish block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
 	//printf("2\n");
 
-	delete_swap_table_entry(e->slot_number);    // Set bitmap entry to 0
+	delete_swap_table_entry(e->slot_number, false);    // Set bitmap entry to 0
   
 	//printf("3\n");
 
@@ -90,8 +90,12 @@ bool swap_in (struct sPage_table_entry *e, struct frame_table_entry *fte){
   return true;
 }
 
-void delete_swap_table_entry(uint32_t slot_number){     // Delete swap table entry 
-  ASSERT (lock_held_by_current_thread(&swap_table_lock));
+void delete_swap_table_entry(uint32_t slot_number, bool lock){     // Delete swap table entry 
+  if(lock)
+		lock_acquire(&swap_table_lock);
 
   bitmap_set(swap_table, slot_number, false);
+
+	if(lock)
+		lock_release(&swap_table_lock);
 }

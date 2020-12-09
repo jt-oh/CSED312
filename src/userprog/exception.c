@@ -164,7 +164,7 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-	//printf("page_fault at %p by %s %d!\n", fault_addr, thread_current()->name, thread_current()->tid);
+	printf("page_fault at %p by %s %d!\n", fault_addr, thread_current()->name, thread_current()->tid);
   
 	/*printf ("Page fault at %p: %s error %s page in %s context.\n",
     fault_addr,
@@ -219,7 +219,7 @@ page_fault (struct intr_frame *f)
   	kill (f);
 	
 
-	//printf("finish page_fault() at %p by %s %d\n", fault_addr, thread_current()->name, thread_current()->tid);
+	printf("finish page_fault() at %p by %s %d\n", fault_addr, thread_current()->name, thread_current()->tid);
 }
 
 bool check_physical_memory ();
@@ -233,15 +233,17 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
 
    s_pte = find_s_pte(vaddr);
 
-	 if(!s_pte)
+	 if(s_pte == NULL)
 	 		s_pte = e;
+
+	//printf("before frame alloc!\n");
 
    // Check whether free physical memory space remained 
    fte = frame_alloc();
    if(fte == NULL)
       return false;
 
-	 //printf("finish eviction!\n");
+	 //printf("finish frame_alloc!\n");
 	 //printf("type %d, loc %d\n", s_pte->type, s_pte->location);
 
    switch(s_pte->location){      // Devide cases into where the Memory data's location is
@@ -287,20 +289,24 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
    // Mapping frame in spte
    e->fte = fte;
    e->location = LOC_PHYS;       // Store Memory in Physcial memory
+
+	 //printf("Initilize spte\n");
    
    // Initialize fte                
    fte->s_pte = e;
    fte->thread = thread_current();
    fte->pin = false;
 
+	 //printf("initialize fte\n");
+
 		//printf("kpage %p file %p\n", kpage, e->file);
 
    /* Load this page. */
-  // if(lock_held_by_current_thread(&file_lock)){
+   if(lock_held_by_current_thread(&file_lock)){
 	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-      //success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
+      success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
 	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-/*		}
+		}
    else{
 			//printf("3\n");
 			//if(file_lock.holder)
@@ -309,9 +315,9 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
       lock_acquire(&file_lock);   
       success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
       lock_release(&file_lock);
-	 		/*printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
+	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
    }
-*/
+
 		//printf("4\n");
    if (!success)
    {
@@ -319,8 +325,8 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
       free(fte);
       return false; 
    }
-		//printf("3\n");
-   memset ((uintptr_t)fte->frame_number << 12 + e->read_bytes, 0, e->zero_bytes);
+		//printf("%p\n", fte->frame_number);
+   memset (((uintptr_t)fte->frame_number << 12) + e->read_bytes, 0, e->zero_bytes);
 
 		//printf("5\n");
 
@@ -337,7 +343,7 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
 		
 		//printf("load executable before insert_frame\n");
    insert_frame(fte);     // Insert new frame table entry into frame_table
-		//printf("executable load with page number %x, frame number %x\n", e->page_number, kpage);
+		//printf("executable load with page number %x, frame number %x\n", e->page_number, fte->frame_number);
 
    return true;   
 }

@@ -158,7 +158,7 @@ struct frame_table_entry *frame_alloc(){
     /* Get a page of memory. */
     kpage = palloc_get_page (PAL_USER);
     if (kpage == NULL)
-        return false;
+        return NULL;
 
       //printf("1\n");
 
@@ -166,13 +166,15 @@ struct frame_table_entry *frame_alloc(){
     fte = (struct frame_table_entry *)malloc(sizeof(struct frame_table_entry));
     if (fte == NULL){
         palloc_free_page(kpage);
-        return false;
+        return NULL;
     }
 
     fte->frame_number = PG_NUM(kpage); 
   }
   
   lock_release(&frame_table_lock);
+
+	//printf("page Alloc kpage %p\n", kpage);
 
   return fte;
 }
