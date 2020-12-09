@@ -228,6 +228,7 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
    //ASSERT (find_s_pte(vaddr) && is_user_vaddr(vaddr));
 	//ASSERT (find_s_pte(vaddr))
    struct sPage_table_entry *s_pte;
+   struct frame_table_entry *fte;
    bool result;
 
    s_pte = find_s_pte(vaddr);
@@ -236,31 +237,9 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
 	 		s_pte = e;
 
    // Check whether free physical memory space remained 
-   if(!check_physical_memory()){
-	 		//printf("eviction occur!\n");
-      struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
-			//printf("candidate find!\n");
-      if(eviction->s_pte->type == TYPE_EXEC){
-         if(!swap_out(eviction))                                       // Swap evicted frame into the swap table
-						return false;
-
-					//printf("swap out fail!\n");
-      }
-      else if(eviction->s_pte->type == TYPE_FILE){
-					//printf("mmap_write_back ", TYPE_FILE);
-         mmap_write_back (eviction->s_pte);
-         // type == mmapped file
-      }
-
-			//printf("1\n");
-
-		// Deallocate Physical Memory and corresponding fte
-			// palloc_free_page((uintptr_t)eviction->frame_number << 12);
-			// pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
-         delete_frame_entry(eviction, false);
-
-			ASSERT (check_physical_memory());
-   }
+   fte = frame_alloc();
+   if(fte == NULL)
+      return false;
 
 	 //printf("finish eviction!\n");
 	 //printf("type %d, loc %d\n", s_pte->type, s_pte->location);
@@ -269,18 +248,18 @@ bool page_fault_handler (void *vaddr, struct sPage_table_entry *e){
       case LOC_NONE:
          if(s_pte->type == TYPE_STACK){
 				 		//printf("before stack growth\n");
-            result = stack_growth(s_pte);
+            result = stack_growth(s_pte, fte);
 						//printf("come back from stack grow\n");
 
             break;
          }
       case LOC_FILE:
          //printf("before load_file!\n");
-         result = load_files(s_pte);
+         result = load_files(s_pte, fte);
          break;
       case LOC_SWAP:
 					//printf("before swap_in!\n");
-         result = swap_in(s_pte);
+         result = swap_in(s_pte, fte);
          break;      
       default:
 	   		break;
@@ -300,32 +279,16 @@ bool check_physical_memory(){                 // Check whether free physical mem
    return true;
 }
 
-bool load_files(struct sPage_table_entry *e){
-   uint8_t *kpage;
-   struct frame_table_entry *fte;
+bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
    bool success;
    
-   /* Get a page of memory. */
-   kpage = palloc_get_page (PAL_USER);
-   if (kpage == NULL)
-      return false;
-
-		//printf("1\n");
-
-   /* Get a fte of memory. */
-   fte = (struct frame_table_entry *)malloc(sizeof(struct frame_table_entry));
-   if (fte == NULL){
-      palloc_free_page(kpage);
-      return false;
-   }
-      
-
+   ASSERT (fte != NULL);
+  
    // Mapping frame in spte
    e->fte = fte;
    e->location = LOC_PHYS;       // Store Memory in Physcial memory
    
-   // Initialize fte
-   fte->frame_number = PG_NUM(kpage);                 
+   // Initialize fte                
    fte->s_pte = e;
    fte->thread = thread_current();
    fte->pin = false;
@@ -344,7 +307,7 @@ bool load_files(struct sPage_table_entry *e){
 				//printf("%s\n", file_lock.holder->name);
 	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);*/
       lock_acquire(&file_lock);   
-      success = file_read_at (e->file, kpage, e->read_bytes, e->offset) == (int) e->read_bytes;
+      success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
       lock_release(&file_lock);
 	 		/*printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
    }
@@ -352,27 +315,25 @@ bool load_files(struct sPage_table_entry *e){
 		//printf("4\n");
    if (!success)
    {
-      palloc_free_page (kpage);
+      palloc_free_page ((uintptr_t)fte->frame_number << 12);
       free(fte);
       return false; 
    }
 		//printf("3\n");
-   memset (kpage + e->read_bytes, 0, e->zero_bytes);
+   memset ((uintptr_t)fte->frame_number << 12 + e->read_bytes, 0, e->zero_bytes);
 
 		//printf("5\n");
 
    /* Add the page to the process's address space. */
-   if (!install_page (((uintptr_t)e->page_number << 12), kpage, e->writable)) 
+   if (!install_page (((uintptr_t)e->page_number << 12), (uintptr_t)fte->frame_number << 12, e->writable)) 
    {
 	 	printf("fail unistall!\n");
-      palloc_free_page (kpage);
+      palloc_free_page ((uintptr_t)fte->frame_number << 12);
       free(fte);
       return false; 
    }
 
 		//printf("6\n");
-
-  
 		
 		//printf("load executable before insert_frame\n");
    insert_frame(fte);     // Insert new frame table entry into frame_table
@@ -381,43 +342,29 @@ bool load_files(struct sPage_table_entry *e){
    return true;   
 }
 
-bool stack_growth(struct sPage_table_entry *s_pte){
-   ASSERT(s_pte != NULL);
-
-   uint8_t *kpage;
-   struct frame_table_entry *fte;
+bool stack_growth(struct sPage_table_entry *s_pte, struct frame_table_entry *fte){
+   ASSERT (s_pte != NULL);
+   ASSERT (fte != NULL);
    bool success;
 
-	//printf("s_pte %p\n", s_pte);
-   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-   if (kpage == NULL)
-      return false;
-
-   fte = (struct frame_table_entry *)malloc(sizeof(struct frame_table_entry));
-   if (fte == NULL){
-      palloc_free_page(kpage);
-      return false;
-   }
 
 	//printf("before install page\n");
-   success = install_page ((uintptr_t)s_pte->page_number << 12, kpage, true);
+   success = install_page ((uintptr_t)s_pte->page_number << 12, (uintptr_t)fte->frame_number << 12, true);
 	//printf("after install page\n");
    if(success){
 	 		//printf("install page success!\n");
       s_pte->fte = fte;
       s_pte->location = LOC_PHYS;   
-
-      fte->frame_number = PG_NUM(kpage);                      // Initialize fte
-      fte->s_pte = s_pte;
+                     
+      fte->s_pte = s_pte;                                   // Initialize fte
       fte->thread = thread_current();
       fte->pin = false;
 
       insert_frame(fte);                                     // Insert fte into frame_table
    }
-
    else{
 	 		//printf("deallocate resources\n");
-      palloc_free_page (kpage);
+      palloc_free_page ((uintptr_t)fte->frame_number << 12);
       free(fte);
       return false;
    }  

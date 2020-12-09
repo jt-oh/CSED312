@@ -8,6 +8,10 @@ static struct list frame_table;
 static struct frame_table_entry *current_fte;        // current position in clock algorithm
 static struct lock frame_table_lock;
 
+static void progress_current_fte();
+static void remove_frame_entry (struct frame_table_entry *);
+static struct frame_table_entry *find_eviction_frame();
+
 void frame_init (){
   list_init (&frame_table);
   current_fte = NULL;
@@ -36,7 +40,7 @@ void insert_frame(struct frame_table_entry *fte){                      // insert
   lock_release(&frame_table_lock);
 }
 
-void progress_cuurent_fte(){
+void progress_current_fte(){
 
   ASSERT(lock_held_by_current_thread(&frame_table_lock));
 
@@ -88,7 +92,7 @@ void delete_frame_entry (struct frame_table_entry *fte){
   
   // If current_fte == deletion frame entry, move next to the current_fte
   if(current_fte == fte){               
-    progress_cuurent_fte(); 
+    progress_current_fte(); 
   }
 
   // Delete Frame table entry from frame table and Deallocate frame table entry
@@ -107,7 +111,7 @@ void remove_frame_entry (struct frame_table_entry *fte){
 
   // If current_fte == deletion frame entry, move next to the current_fte
   if(current_fte == fte){               
-    progress_cuurent_fte(); 
+    progress_current_fte(); 
   }
 
   // Delete Frame table entry from frame table and Deallocate frame table entry

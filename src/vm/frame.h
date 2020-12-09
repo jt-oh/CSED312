@@ -1,3 +1,5 @@
+#ifndef VM_FRAME_H
+#define VM_FRAME_H
 #include <list.h>
 #include "vm/page.h"
 #include "threads/thread.h"
@@ -13,5 +15,7 @@ struct frame_table_entry
 
 void frame_init ();
 void insert_frame (struct frame_table_entry *);
-struct frame_table_entry *find_eviction_frame ();
 void delete_frame_entry (struct frame_table_entry *);
+struct frame_table_entry *frame_alloc();
+
+#endif
