@@ -359,11 +359,9 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
-	//printf("before process_exit()\n");
 #ifdef USERPROG
   process_exit ();
 #endif
-	//printf("after process_exit()\n");
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
@@ -844,9 +842,6 @@ void multiple_priority_donation (struct thread *holder){
   ASSERT ( t != NULL );
 	ASSERT (holder != NULL);
 
-	//if(hi)
-		//printf("Hi! I'm multiple donation!\n");
-
   holder->priority = t->priority;
   list_insert_ordered(&holder->donation_list, &t->donation_elem, cmp_donation_priority, NULL);
 }
@@ -859,9 +854,6 @@ void nested_priority_donation (struct thread *holder){
   ASSERT ( t != NULL );
   ASSERT ( c != NULL );
 	ASSERT ( holder != NULL);
-
-	//if(hi)
-		//printf("Hi! I'm nested donation!\n");
 
   for(i = 0; i < 7 && t->waiting_lock; i++){
 		if(t->waiting_lock->holder == NULL)

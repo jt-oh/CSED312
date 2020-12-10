@@ -47,8 +47,6 @@ syscall_handler (struct intr_frame *f UNUSED)
   // get syscall number
   number = *(int *)f->esp;
 
-	//printf("syscall_handler with number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
-
   // assign to each syscall handler func
   switch(number){
     case SYS_HALT:
@@ -78,17 +76,13 @@ syscall_handler (struct intr_frame *f UNUSED)
           break;
 
     case SYS_CREATE:
-            //printf("begin Create!\n");
 						arg = (int *)malloc(sizeof(int) * 2);
             pop_arg_from_stack(f->esp, arg, 2);
             if(!isValid_Vaddr(arg[0])){
-							//printf("invalid vaddr in Create\n");
               free(arg);
               Exit(-1);
             }
-						//printf("Creating\n");
             result = Create(arg[0], arg[1]);
-						//printf("end Create!\n");
           break;
 
     case SYS_REMOVE:
@@ -105,7 +99,6 @@ syscall_handler (struct intr_frame *f UNUSED)
             arg = (int *)malloc(sizeof(int) * 1);
             pop_arg_from_stack(f->esp, arg, 1);
             if(!isValid_Vaddr(arg[0])){
-							//printf("invalid vaddr!\n");
               free(arg);
               Exit(-1);
             }
@@ -157,11 +150,9 @@ syscall_handler (struct intr_frame *f UNUSED)
           break;
 
     case SYS_MMAP:
-						//printf("begin mmap!\n");
             arg = (int *)malloc(sizeof(int) * 2);
             pop_arg_from_stack(f->esp, arg, 2);
             result = Mmap(arg[0], arg[1]);
-						//printf("end mmap!\n");
           break;
 
     case SYS_MUNMAP:
@@ -191,33 +182,23 @@ syscall_handler (struct intr_frame *f UNUSED)
     default:
             f->eax = result;
   }
-
-//	printf("end syscall_handler with syscall number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
 }
 
 bool isValid_Vaddr (void *addr){
   struct thread *t = thread_current ();
 	int i;
 
-	//printf("isValid_Vaddr after is user vaddr\n");
   // validness check for addr~addr+3
 	for(i = 0; i < 4; i++){
   	// check whether addr is included in user memory
 
-		//printf("isValid_Vaddr before is user vaddr\n");
   	if(!is_user_vaddr((uintptr_t)addr + i))
     	return false;
 
-
   	// find the address of page table entry and check whether it is not NULL 
-  	if(!find_s_pte((uintptr_t)addr + i)){        // SOS Implementation project 3
-			//printf("find_s_pte false\n");
+  	if(!find_s_pte((uintptr_t)addr + i))        // SOS Implementation project 3
     	return false;
-		}
-
 	}
-
-	//printf("find_s_pte true\n");
 
 	return true;
 }
@@ -235,14 +216,18 @@ bool check_writable(void *buffer){
 void pop_arg_from_stack (void *esp, int *arg, int n){
   int i;
 
-	esp = (uintptr_t)esp + (uintptr_t)4;        // pass syscall number in user stack
+  // pass syscall number in user stack
+	esp = (uintptr_t)esp + (uintptr_t)4;        
 
+  
   for(i = 0; i < n; i++){
-		if(!isValid_Vaddr(esp)){				// Check the validness of esp access
+    // Check the validness of esp access
+		if(!isValid_Vaddr(esp)){				
 			free(arg);
 			Exit(-1);
 		}
-    arg[i] = *(int *)esp;                         // get argument
+    // get argument
+    arg[i] = *(int *)esp;                         
     esp = (uintptr_t)esp + (uintptr_t)4; 
   }
   
@@ -298,16 +283,16 @@ bool Create (const char *file, unsigned initial_size){
   ASSERT (isValid_Vaddr(file));
 
 	bool result;
-	//printf ("%s\n", thread_current()->name);
-	//printf("Create() file %s!\n", file);
 
-  // Create file with the given name file
-  pin_buffer(file, strlen(file));
+  // pin page with user-provided pointer to physical memory 
+  pin_buffer(file, strlen(file));             
+
+  // Create file with the given name file while grapping file lock
 	lock_acquire(&file_lock);
-	//printf("%s\n", file);
   result = filesys_create(file, initial_size);
-	//printf("2\n");
 	lock_release (&file_lock);
+
+  // unpin page with user-provided pointer to physical memory 
   unpin_buffer(file, strlen(file));
 
 	return result;
@@ -337,9 +322,6 @@ int Open (const char *file_){
 	lock_acquire(&file_lock);
 	file = filesys_open(file_);
 	lock_release(&file_lock);
-
-	//printf ("%s\t", thread_current()->name);
-	//printf("Open() file %p open!!\n", file);
 
 	if(file)
 		return process_create_file(file);   // get new fd with the given name file
@@ -376,20 +358,16 @@ int Read (int fd, void *buffer, unsigned size){
       ((uint8_t *)buffer)[result] = input_getc();
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){            // Reading on other input case	
-		//printf("before file_read at read!\n");
-
+    // pin page with user-provided pointer to physical memory 
     pin_buffer(buffer, size);
-		//printf("1 %p\n", file_lock.holder);
-  // acquire lock to guarantee mutual exclusion to the file access
-  	lock_acquire(&file_lock);
-		//printf("2\n");
-    result = file_read(file, buffer, size);
-		//printf("3\n");
-  	lock_release(&file_lock);
-		//printf("4\n");
-    unpin_buffer(buffer, size);
 
-		//printf("after file_read at read!\n");
+    // acquire lock to guarantee mutual exclusion to the file access
+  	lock_acquire(&file_lock);
+    result = file_read(file, buffer, size);
+  	lock_release(&file_lock);
+
+    // unpin page with user-provided pointer to physical memory 
+    unpin_buffer(buffer, size);
   }
   else{                             // Exception case
     result = -1;
@@ -405,18 +383,19 @@ int Write (int fd, const void * buffer, unsigned size){
   ASSERT (buffer != NULL);
  
   if(fd == STDOUT_FILENO){            // Writing on Standard Output case
-		//printf("stdout write!\n");
     putbuf(buffer, size);
     result = size;
   }
   else if(file != NULL && fd > 1 && fd < thread_current()->fd){              // Writing on other output case
+    // pin page with user-provided pointer to physical memory 
     pin_buffer(buffer, size);
+
   	// acquire lock to guarantee mutual exclusion to the file access
   	lock_acquire(&file_lock);
-		//printf("before file_write at write!\n");
     result = file_write(file, buffer, size);
-		//printf("after file_write at write!\n");
   	lock_release(&file_lock);
+
+    // unpin page with user-provided pointer to physical memory 
     unpin_buffer(buffer, size);
   }
   else{                               // Exception case
@@ -495,8 +474,6 @@ void process_close_file (int fd){
     file_close(t->fd_table[fd]);
 		lock_release(&file_lock);
     t->fd_table[fd] = NULL;
-		//printf ("%s\n", thread_current()->name);
-		//printf ("file_close file %d close!\n", fd);
   }
 }
 
@@ -516,8 +493,6 @@ mapid_t Mmap(int fd, void *addr){
 
   ASSERT (t != NULL);
 
-	//printf("start Mmap()\n");
-
   file = process_get_file(fd);         // Get File from File Descriptor
 	if(file == NULL)
 		return -1;
@@ -527,12 +502,8 @@ mapid_t Mmap(int fd, void *addr){
   read_bytes = file_length(file);     // Set read bytes to file size
   lock_release(&file_lock);
 
-	//printf("1\n");
-
 	if(read_bytes == 0 || (uintptr_t)addr % PGSIZE != 0 || (uintptr_t)addr == 0 || fd == 0 || fd == 1)
 		return -1;	
-
-	//printf("2\n");
 	
   lock_acquire(&file_lock);        
   new_file = file_reopen(file);           // Reopen new independent file from file descriptor
@@ -561,29 +532,16 @@ mapid_t Mmap(int fd, void *addr){
 
   list_push_back(&t->mmap_table, &mm_file->elem);                     // Insert mmap file to mmap_table of the current thread
 
-
-
-
-	//printf("3\n");
-
-
-	
-	//printf("4\n");
-
   upage = addr;
   while(read_bytes > 0){                  // Get enough sPage table entry to cover the read bytes of the file and store into the mmap table
     // Make and allocate sPage table entry for mmap file
     s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));     
     if(s_pte == NULL || find_s_pte(upage)){
-			//printf("5\n");
 			deallocate_mmap_file(mm_file);
 			if(s_pte != NULL)
 				free(s_pte);
-			//printf("s_pte %p with page %p\n", s_pte, upage);
       return -1;
 		}
-
-		//printf("4\n");
     
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
@@ -600,26 +558,12 @@ mapid_t Mmap(int fd, void *addr){
 
     hash_insert(&t->sPage_table, &s_pte->elem);
     list_push_back(&mm_file->s_pte_list, &s_pte->mmap_table_elem);
-    //printf("%d page_number %x\n", i, s_pte->page_number);
 
     /* Advance. */
     read_bytes -= page_read_bytes;
     upage += PGSIZE;
     i++;                 
-
-		//printf("insert upage %p\n", (uintptr_t)upage << 12);
-		//printf("remained read_bytes%d\n", read_bytes);
   }
-
-	//printf("5\n");
-
-	//printf("5\n");
-
-
-
-	//printf("6\n");
-
-	//printf("finish Mamp()\n");
   
   return mapid;
 }
@@ -644,17 +588,11 @@ void Munmap(mapid_t mapid){
       break;
   }
 
-	//printf("1\n");
-
   // if no corresponding mapid, return
   if(e == list_end(&t->mmap_table))
     return;
-
-	//printf("2\n");
-	//printf("%d\n", list_size(&mm_file->s_pte_list));
   
   deallocate_mmap_file(mm_file);
-	//printf("finish Munmap()\n");
 }
 
 static mapid_t allocate_mapid (void){
@@ -673,27 +611,22 @@ static mapid_t allocate_mapid (void){
 void mmap_write_back (struct sPage_table_entry *s_pte){
   ASSERT(s_pte != NULL);
   
-  bool dirty;                              // Check dirty bit is true or not
+  // Check dirty bit is true or not
+  bool dirty;                              
   dirty = pagedir_is_dirty(s_pte->fte->thread->pagedir, (uintptr_t)s_pte->page_number << 12);
 
-	//printf("1\n");
-
+  // If dirty bit is true, write back into File System
   if(dirty){           
-	//printf("2\n");
-    if(!lock_held_by_current_thread(&file_lock)){                    // If dirty bit is true, write back into File System
-			//printf("3\n");
-			//printf("%d, %p, %p, %d, %d\n",s_pte->type, s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
+    /*if(!lock_held_by_current_thread(&file_lock)){                    
       file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
 		}
-    else{
-			//printf("4\n");
+    else{*/
       lock_acquire(&file_lock);
       file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
       lock_release(&file_lock);
-    }
+    //}
   }
 
-	//printf("5\n");
   s_pte->location = LOC_FILE;             // Current sPage table entry is located in File System
 }
 

@@ -15,89 +15,82 @@ void swap_init(){
 }
 
 size_t find_empty_swap_slot(){       
-  //ASSERT (lock_held_by_current_thread(&swap_table_lock));
 	size_t index;
 
 	lock_acquire(&swap_lock);
   
-  index = bitmap_scan_and_flip(swap_table, 0, 1, false);     // Find empy swap slot
+  // Find empy swap slot
+  index = bitmap_scan_and_flip(swap_table, 0, 1, false);     
 
 	lock_release(&swap_lock);
 
 	return index;
 }
 
-bool swap_out (struct frame_table_entry *e){
-  ASSERT (e != NULL);
+bool swap_out (struct frame_table_entry *fte){
+  ASSERT (fte != NULL);
 
   size_t index;
   int i;
   
-  index = find_empty_swap_slot();                         // Get empty swap slot
-  if(index == BITMAP_ERROR)                               // If no empty swap, return false
+  // Get empty swap slot
+  index = find_empty_swap_slot();                         
+  if(index == BITMAP_ERROR)                             
     return false;
 
   // Store Frame Data into Swap slot
-	//printf("before block write in swap_out by %s %d\n", thread_current()->name, thread_current()->tid);
   lock_acquire(&swap_lock);
-  for (i=0; i<8; i++) {
-    block_write(swap_slots, 8 * index + i, ((uintptr_t)e->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
-  }
+  for (i=0; i<8; i++)
+    block_write(swap_slots, 8 * index + i, ((uintptr_t)fte->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
   lock_release(&swap_lock);
-	//printf("finish block write in swap_out by %s %d\n", thread_current()->name, thread_current()->tid);
 
-  e->s_pte->location = LOC_SWAP;
-  e->s_pte->slot_number = index;                           // store swap index
+  // modify location of the page and store swap index
+  fte->s_pte->location = LOC_SWAP;
+  fte->s_pte->slot_number = index;                           
   
   return true;
 }
 
-bool swap_in (struct sPage_table_entry *e, struct frame_table_entry *fte){
-  ASSERT (e != NULL);
+bool swap_in (struct sPage_table_entry *s_pte, struct frame_table_entry *fte){
+  ASSERT (s_pte != NULL);
   ASSERT (fte != NULL);
   
   int i;
 
-	//printf("before block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
+  //Read block in Swap table 
   lock_acquire(&swap_lock);
-  for(i=0; i<8; i++){            //Read block in Swap table 
-    block_read(swap_slots, 8 * e->slot_number + i, ((uintptr_t)fte->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
-  }
+  for(i=0; i<8; i++)           
+    block_read(swap_slots, 8 *s_pte->slot_number + i, ((uintptr_t)fte->frame_number << 12) + BLOCK_SECTOR_SIZE * i);
 	lock_release(&swap_lock);
-	//printf("finish block read in swap_in by %s %d\n", thread_current()->name, thread_current()->tid);
-	//printf("2\n");
 
-	delete_swap_table_entry(e->slot_number);    // Set bitmap entry to 0
-  
-	//printf("3\n");
+  // Set bitmap entry to 0
+	delete_swap_table_entry(s_pte->slot_number);    
 
-  if (!install_page ((uintptr_t)e->page_number << 12, (uintptr_t)fte->frame_number << 12, e->writable)) {  // Bring Swap table entry to Physical memory
+  // Install page dircetory 
+  if (!install_page ((uintptr_t)s_pte->page_number << 12, (uintptr_t)fte->frame_number << 12, s_pte->writable)) {  
     palloc_free_page ((uintptr_t)fte->frame_number << 12);
     free(fte);
     return false; 
   }
   
-  e->fte = fte;
-  e->location = LOC_PHYS;   // Set current location to Physical Memory
+  // Modify s_pte information
+  s_pte->fte = fte;
+  s_pte->location = LOC_PHYS;   // Set current location to Physical Memory
 
-   // Initialize ftE                
-  fte->s_pte = e;
+  // Modify fte information               
+  fte->s_pte = s_pte;
   fte->thread = thread_current();
   fte->pin = false;
-
-	//printf("4\n");
 		
-  insert_frame(fte);     // Insert new frame table entry into frame_table\
-
-	//printf("5\n");
+  // Insert new frame table entry into frame_table
+  insert_frame(fte);     
 
   return true;
 }
 
-void delete_swap_table_entry(uint32_t slot_number){     // Delete swap table entry 
+void delete_swap_table_entry(uint32_t slot_number){     
+  // Delete swap table entry with swap lock
 	lock_acquire(&swap_lock);
-
   bitmap_set(swap_table, slot_number, false);
-
 	lock_release(&swap_lock);
 }

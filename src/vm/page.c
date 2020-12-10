@@ -40,41 +40,29 @@ struct sPage_table_entry *find_s_pte (void *vaddr){
   struct thread *t = thread_current();
   struct list_elem *e;
   struct sPage_table_entry *result;
-
-	//printf("Hi! find_s_pte!\n");
     
-  page_number = PG_NUM(vaddr);                       // get Page Number of vaddr
-	
-	//printf("find_s_pte get page number!\n");
+  // get Page Number of vaddr
+  page_number = PG_NUM(vaddr);                       
 
-  hash = get_hash(page_number);    						// get hash of vaddr
+  // get hash of vaddr
+  hash = get_hash(page_number);    						
 
-	//printf("find_s_pte got hash!\n");
+  // get bucket with hash in sPage_Table
+  bucket = &t->sPage_table.buckets[hash % t->sPage_table.bucket_cnt];           
 
-	//printf("tid %d\n", t->tid);
-
-  bucket = &t->sPage_table.buckets[hash % t->sPage_table.bucket_cnt];           // get bucket with hash in sPage_Table
-
-	//printf("find_spte got bucket!\n");
-
-  if(list_empty(bucket))                           // Case: Bucket is empty
+  // Case: Bucket is empty
+  if(list_empty(bucket))                           
     return NULL;
 
-	//printf("find_s_pte before get hash element\n");
-	//printf("bucket size : %d \n", list_size(bucket));
-
+  // Case: Find vaddr in sPage_table
   for(e = list_begin(bucket); e != list_end(bucket); e = list_next(e)){
     result = hash_entry(list_elem_to_hash_elem(e), struct sPage_table_entry, elem);
-		//printf("check! page number %x\n", result->page_number);
-    if(result->page_number == page_number){
-     //printf("find hash element\n");
-		 return result;                                // Case: Find vaddr in sPage_table
-  	}
+    if(result->page_number == page_number)
+		 return result;                                
 	}
 
-	//printf("can't find hash element\n");
-
-  return NULL;                                      // Case: Can't find vaddr in sPage_table
+  // Case: Can't find vaddr in sPage_table
+  return NULL;                                      
 }
 
 void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
@@ -85,8 +73,6 @@ void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
   // Get s_pte
   s_pte = hash_entry(e, struct sPage_table_entry, elem);    
 
-	//printf("delete %p sPte with %p frame_number\n", s_pte->page_number, s_pte->fte->frame_number);
-  // Deallocate related frame table entry or swap table entry
   if(s_pte->location == LOC_PHYS){
 		palloc_free_page((uintptr_t)s_pte->fte->frame_number << 12);
 		pagedir_clear_page(s_pte->fte->thread->pagedir, (uintptr_t)s_pte->page_number << 12);
@@ -94,8 +80,6 @@ void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
 	}
   else if(s_pte->location == LOC_SWAP)
     delete_swap_table_entry(s_pte->slot_number);
-
-	
 
   // Deallocate s_pte
   free(s_pte);
@@ -111,7 +95,6 @@ void deallocate_mmap_file (struct mmap_file *mm_file){
 
   // Deallocate all resources related to all s-pte in mmap table
   while(!list_empty(&mm_file->s_pte_list)){
-		//printf("start for\n");
     e = list_begin(&mm_file->s_pte_list);
     s_pte = list_entry(e, struct sPage_table_entry, mmap_table_elem);
     if(s_pte->location == LOC_PHYS){  
@@ -129,22 +112,15 @@ void deallocate_mmap_file (struct mmap_file *mm_file){
     list_remove(e);
     hash_delete (&t->sPage_table, &s_pte->elem);
     free(s_pte);
-
-		//printf("4\n");
   }
-	//printf("1\n");
 
-  // deallocate mmap_file
+  // deallocate mmap_file 
   lock_acquire(&file_lock);
-	//printf("1\n");
   file_close(mm_file->file);
-	//printf("1\n");
   lock_release(&file_lock);
-
-	//printf("5\n");
   
+  // deallocate mmapep file structrue
   list_remove(&mm_file->elem);
-	//printf("6\n");
   free(mm_file);
 }
 
@@ -161,6 +137,7 @@ void pin_buffer(void *buffer, size_t read_bytes){
 			Exit(-1);
 
 		if(s_pte->location == LOC_PHYS){
+      // pin page with buffer + i * PGSIZE in physical memory
 			s_pte->fte->pin = true;
 			continue;
 
@@ -172,34 +149,27 @@ void pin_buffer(void *buffer, size_t read_bytes){
     if(fte == NULL)
       Exit(-1);
 
-	  //printf("finish eviction!\n");
-	  //printf("type %d, loc %d\n", s_pte->type, s_pte->location);
-
     switch(s_pte->location){      // Devide cases into where the Memory data's location is
       case LOC_NONE:
         if(s_pte->type == TYPE_STACK){
-				 		//printf("before stack growth\n");
           if(!stack_growth(s_pte, fte))
             Exit(-1);
-						//printf("come back from stack grow\n");
-
-          break;
+            break;
         }
       case LOC_FILE:
-         //printf("before load_file!\n");
         if(!load_files(s_pte, fte))
           Exit(-1);
         break;
       case LOC_SWAP:
-					//printf("before swap_in!\n");
         if(!swap_in(s_pte, fte))
           Exit(-1);
         break;      
       default:
 	   		break;
     }
+
+    // pin page with buffer + i * PGSIZE in physical memory
     s_pte->fte->pin = true;
-		//printf("pin %p by %s %d\n", s_pte->page_number, thread_current()->name, thread_current()->tid);
   }
 }
 
@@ -214,6 +184,7 @@ void unpin_buffer(void *buffer, size_t read_bytes){
     ASSERT (s_pte != NULL);
 		ASSERT (s_pte->fte != NULL);
     
+    // unpin page with buffer + i * PGSIZE in physical memory
     s_pte->fte->pin = false;
   }
 }

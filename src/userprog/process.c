@@ -169,9 +169,6 @@ start_process (void *file_name_)
   palloc_free_page (file_name);		// SOS Implementation project 2
 	palloc_free_page (fn_copy);
 
-	//printf("start process finish!\n");
-	//printf("tid %d\n", thread_current()->tid);
-
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -228,9 +225,6 @@ process_exit (void)
     mm_file = list_entry(e, struct mmap_file, elem);
     deallocate_mmap_file(mm_file);
   }
-	// End SOS Implementation
-
-	//printf("process_exit() deallocate mmap_file\n");
 
   // Project 3 Deallocate sPage table
   hash_destroy(&cur->sPage_table, s_pte_fte_ste_deallocator);
@@ -252,24 +246,16 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-
-	//printf("process_exit afte pagedir_destroy\n");
   
   /* SOS Implementation project 2*/
   if(cur->running_file != NULL){         // if there exists executable, 
 		lock_acquire(&file_lock);
 		file_close(cur->running_file);      // allow write using file_close
 		lock_release(&file_lock);
-
 	}
 
   for(i=2; i<cur->fd; i++)              // Close all fd in the exiting process
     process_close_file(i);
-
-	//printf("before hash_destroy\n");
-
-
-	//printf("after hash_destroy\n");
 }
 
 /* Sets up the CPU for running user code in the current
@@ -377,8 +363,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-	//printf("file name: %s!\n", file_name);
-
   /* Open executable file. */
 	lock_acquire(&file_lock);		// SOS Implementation - filesys lock acquire
   file = filesys_open (file_name);   
@@ -451,11 +435,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-							//printf("before load)segment\n");
+							
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
                 goto done;
-							//printf("after load)segment\n");
             }
           else
             goto done;
@@ -464,10 +447,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-	//printf("before setup_stack\n");
   if (!setup_stack (esp))
     goto done;
-	//printf("after setup_stack\n");
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -489,9 +470,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 	// filesys lock release
 	lock_release(&file_lock);
-
-	//printf("load Finish!\n");
   /* END SOS Implementation */
+
   return success;
 }
 
@@ -581,11 +561,13 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       // SOS Implementation Project 3
  			s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));
   
-			if(s_pte == NULL)       // If allocation failed, return false
+      // If allocation failed, return false
+			if(s_pte == NULL)       
     		return false;
 
+      // Current location is just in Virtual Space
       s_pte->type = TYPE_EXEC;
-      s_pte->location = LOC_NONE;     // Current location is just in Virtual Space
+      s_pte->location = LOC_NONE;     
       s_pte->page_number = PG_NUM(upage);
       s_pte->writable = writable;
       s_pte->file = file;
@@ -595,7 +577,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       s_pte->zero_bytes = page_zero_bytes;
 
       hash_insert(&thread_current()->sPage_table, &s_pte->elem);
-			//printf("%d page_number %x\n", i, s_pte->page_number);
 
       // End SOS Implementation
 
@@ -635,7 +616,8 @@ setup_stack (void **esp)
         *esp = PHYS_BASE;
         
         // SOS Implementation project 3
-        s_pte->type = TYPE_EXEC;                                       // Initialize s_pte
+        // Initialize s_pte
+        s_pte->type = TYPE_EXEC;                                       
         s_pte->location = LOC_PHYS;                                    // Current location is in Physical memory
         s_pte->page_number = PG_NUM((uint8_t *)PHYS_BASE - PGSIZE);
         s_pte->writable = true;
@@ -645,15 +627,17 @@ setup_stack (void **esp)
         s_pte->read_bytes = 0;
         s_pte->zero_bytes = PGSIZE;
         
-        fte->frame_number = PG_NUM(kpage);                             // Initialize fte
+        // Initialize fte
+        fte->frame_number = PG_NUM(kpage);                             
         fte->s_pte = s_pte;
         fte->thread = thread_current();
         fte->pin = false;
         
-        hash_insert(&thread_current()->sPage_table, &s_pte->elem);     // Insert s_pte into sPageTable
-				//printf("page_number %x\n with frame number %x\n", s_pte->page_number, kpage);
+        // Insert s_pte into sPageTable
+        hash_insert(&thread_current()->sPage_table, &s_pte->elem);     
 
-        insert_frame(fte);                                      // Insert fte into frame_table
+        // Insert fte into frame_table
+        insert_frame(fte);                                      
         
         // End SOS Implementation project 3
       }
@@ -664,16 +648,18 @@ setup_stack (void **esp)
         free(fte);
         // End SOS Implementation project 3
       }
-    }											 // SOS Implementation project 3
-  else{                
-											// If not success but resources are allocated, free them
-  	if(kpage)
-      palloc_free_page(kpage);
-    if(s_pte)
-      free(s_pte);
-    if(fte)
-      free(fte);
-  }
+    }											 
+  else     
+    {        
+      // SOS Implementation project 3        
+      // If not success but resources are allocated, free them
+      if(kpage)
+        palloc_free_page(kpage);
+      if(s_pte)
+        free(s_pte);
+      if(fte)
+        free(fte);
+    }
   // End SOS Implementation project 3
 
   return success;

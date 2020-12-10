@@ -164,15 +164,6 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-	//printf("page_fault at %p by %s %d in %s constext!\n", fault_addr, thread_current()->name, thread_current()->tid, user ? "user" : "kernel");
-  
-	/*printf ("Page fault at %p: %s error %s page in %s context by %s %d.\n",
-    fault_addr,
-    not_present ? "not present" : "rights violation",
-    write ? "writing" : "reading",
-    user ? "user" : "kernel",
-		thread_current()->name,
-		thread_current()->tid);*/
 		
 	// check stack growth
 	check_stack_growth(f->esp, fault_addr);
@@ -192,20 +183,13 @@ page_fault (struct intr_frame *f)
                user ? "user" : "kernel");
       kill (f);
   }
-  
-	//printf("before page_fault_handler!\n");
 
-
+   // Page Fault Handler
 	if(!page_fault_handler(fault_addr))
-  	kill (f);
-	
-
-	//printf("finish page_fault() at %p by %s %d in %s context\n", fault_addr, thread_current()->name, thread_current()->tid, user ? "user" : "kernel");
+  	   kill (f);
 }
 
 bool page_fault_handler (void *vaddr){
-   //ASSERT (find_s_pte(vaddr) && is_user_vaddr(vaddr));
-	//ASSERT (find_s_pte(vaddr))
    struct sPage_table_entry *s_pte;
    struct frame_table_entry *fte;
    bool result;
@@ -214,37 +198,22 @@ bool page_fault_handler (void *vaddr){
 	 if(s_pte == NULL)
 	 	return NULL;
 
-	 /*if(s_pte == NULL){
-			if(e == NULL)
-				return false;
-	 		s_pte = e;
-		}*/
-
-	//printf("before frame alloc!\n");
-
    // Check whether free physical memory space remained 
    fte = frame_alloc();
    if(fte == NULL)
       return false;
 
-	 //printf("finish frame_alloc!\n");
-	 //printf("type %d, loc %d\n", s_pte->type, s_pte->location);
-
-   switch(s_pte->location){      // Devide cases into where the Memory data's location is
+   // Devide cases into where the Memory data's location is
+   switch(s_pte->location){      
       case LOC_NONE:
          if(s_pte->type == TYPE_STACK){
-				 		//printf("before stack growth\n");
             result = stack_growth(s_pte, fte);
-						//printf("come back from stack grow\n");
-
             break;
          }
       case LOC_FILE:
-         //printf("before load_file!\n");
          result = load_files(s_pte, fte);
          break;
       case LOC_SWAP:
-					//printf("before swap_in!\n");
          result = swap_in(s_pte, fte);
          break;      
       default:
@@ -252,74 +221,50 @@ bool page_fault_handler (void *vaddr){
 	   		break;
    }
 
-	// printf("finish page_fault_handler with %d\n", result);
    return result;
 }
 
-bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
+bool load_files(struct sPage_table_entry *s_pte, struct frame_table_entry *fte){
    bool success;
    
    ASSERT (fte != NULL);
-  
-	 //printf("initialize fte\n");
 
-		//printf("kpage %p file %p\n", kpage, e->file);
-	
+   // read files while grapping file lock
 	ASSERT( !lock_held_by_current_thread(&file_lock));
-
-   /* Load this page. */
-   /*if(lock_held_by_current_thread(&file_lock)){
-	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-      success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
-	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-		}
-   else{*/
-			//printf("3\n");
-			//if(file_lock.holder)
-				//printf("%s\n", file_lock.holder->name);
-	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);*/
-      lock_acquire(&file_lock);   
-      success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
-      lock_release(&file_lock);
-	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-   //}
-
-		//printf("4\n");
+   lock_acquire(&file_lock);   
+   success = file_read_at (s_pte->file, (uintptr_t)fte->frame_number << 12, s_pte->read_bytes, s_pte->offset) == (int) s_pte->read_bytes;
+   lock_release(&file_lock);
+	
    if (!success)
    {
       palloc_free_page ((uintptr_t)fte->frame_number << 12);
       free(fte);
       return false; 
    }
-		//printf("%p\n", fte->frame_number);
-   memset (((uintptr_t)fte->frame_number << 12) + e->read_bytes, 0, e->zero_bytes);
 
-		//printf("5\n");
+   // Store data in Physcial memory
+   memset (((uintptr_t)fte->frame_number << 12) + s_pte->read_bytes, 0, s_pte->zero_bytes);
 
    /* Add the page to the process's address space. */
-   if (!install_page (((uintptr_t)e->page_number << 12), (uintptr_t)fte->frame_number << 12, e->writable)) 
+   if (!install_page (((uintptr_t)s_pte->page_number << 12), (uintptr_t)fte->frame_number << 12, s_pte->writable)) 
    {
 	 	printf("fail unistall!\n");
       palloc_free_page ((uintptr_t)fte->frame_number << 12);
       free(fte);
       return false; 
    }
-
-		//printf("6\n");
 		
    // Mapping frame in spte
-   e->fte = fte;
-   e->location = LOC_PHYS;       // Store Memory in Physcial memory
-
-	 //printf("Initilize spte\n");
+   s_pte->fte = fte;
+   s_pte->location = LOC_PHYS;       
    
    // Initialize fte                
-   fte->s_pte = e;
+   fte->s_pte = s_pte;
    fte->thread = thread_current();
    fte->pin = false;
-		//printf("load executable before insert_frame\n");
-   insert_frame(fte);     // Insert new frame table entry into frame_table
-		//printf("executable load with page number %x, frame number %x\n", e->page_number, fte->frame_number);
+
+   // Insert new frame table entry into frame_table
+   insert_frame(fte);     
 
    return true;   
 }
@@ -329,59 +274,58 @@ bool stack_growth(struct sPage_table_entry *s_pte, struct frame_table_entry *fte
    ASSERT (fte != NULL);
    bool success;
 
-	//printf("before install page\n");
-   success = install_page ((uintptr_t)s_pte->page_number << 12, (uintptr_t)fte->frame_number << 12, true);
-
+   // Store data in Physcial memory
    memset (((uintptr_t)fte->frame_number << 12) + s_pte->read_bytes, 0, s_pte->zero_bytes);
-	//printf("after install page\n");
-   if(success){
-	 		//printf("install page success!\n");
-      s_pte->fte = fte;
-      s_pte->location = LOC_PHYS;   
-                     
-      fte->s_pte = s_pte;                                   // Initialize fte
-      fte->thread = thread_current();
-      fte->pin = false;
 
-      insert_frame(fte);                                     // Insert fte into frame_table
-   }
-   else{
-	 		//printf("deallocate resources\n");
+   /* Add the page to the process's address space. */
+   success = install_page ((uintptr_t)s_pte->page_number << 12, (uintptr_t)fte->frame_number << 12, true);
+   if(!success){
       palloc_free_page ((uintptr_t)fte->frame_number << 12);
       free(fte);
-      return false;
-   }  
+      return false;                                       
+   }
+
+   // Mapping frame in spte
+   s_pte->fte = fte;
+   s_pte->location = LOC_PHYS;   
+                  
+   // Initialize fte
+   fte->s_pte = s_pte;                                   
+   fte->thread = thread_current();
+   fte->pin = false;
+
+   // Insert fte into frame_table
+   insert_frame(fte); 
 
    return true;
 }
 
 static void check_stack_growth (uintptr_t esp, void *vaddr){
-  uintptr_t esp_growth;
-  struct sPage_table_entry *s_pte;
-	//printf("f->esp %p, fault_addr %p\n", f->esp, fault_addr);
+   uintptr_t esp_growth;
+   struct sPage_table_entry *s_pte;
 
-  if(esp >= (uintptr_t)vaddr){
-    esp_growth = esp - PGSIZE;
+   if(esp >= (uintptr_t)vaddr){
+      esp_growth = esp - PGSIZE;
 
-    if((uintptr_t)PHYS_BASE - 8 * 1024 * 1024 > esp_growth)
-       return;
-    else if(esp_growth < (uintptr_t)vaddr){
-			//	printf("make s_pte for new stack region\n");
-       s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));
-			 if(s_pte == NULL)
-			 	return;
+      if((uintptr_t)PHYS_BASE - 8 * 1024 * 1024 > esp_growth)
+         return;
+      else if(esp_growth < (uintptr_t)vaddr){
+         s_pte = (struct sPage_table_entry *)malloc(sizeof(struct sPage_table_entry));
+			   if(s_pte == NULL)
+			 	   return;
 
-       s_pte->type = TYPE_STACK;                                       // Initialize s_pte
-       s_pte->location = LOC_NONE;                                    // Current location is in Physical memory
-       s_pte->page_number = PG_NUM(vaddr);
-       s_pte->writable = true;
-       s_pte->file = NULL;
-       s_pte->fte = NULL;
-       s_pte->offset = 0;
-       s_pte->read_bytes = 0;
-       s_pte->zero_bytes = PGSIZE;
+         // Initialize s_pte
+         s_pte->type = TYPE_STACK;                                       
+         s_pte->location = LOC_NONE;                                    
+         s_pte->page_number = PG_NUM(vaddr);
+         s_pte->writable = true;
+         s_pte->file = NULL;
+         s_pte->fte = NULL;
+         s_pte->offset = 0;
+         s_pte->read_bytes = 0;
+         s_pte->zero_bytes = PGSIZE;
 
-       hash_insert(&thread_current()->sPage_table, &s_pte->elem);
-     }
-  }
+         hash_insert(&thread_current()->sPage_table, &s_pte->elem);
+      }
+   }
 }

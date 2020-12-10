@@ -21,27 +21,22 @@ void frame_init (){
 void insert_frame(struct frame_table_entry *fte){                      // insert frame_table_entry before currnet_position
   ASSERT(fte != NULL);
 
+  // Get lock for accessing shoring resources
   lock_acquire(&frame_table_lock);
   
-  if(current_fte == NULL){                     // Frame table is empty
-    //printf("current_fte NULL\n");
+  // Frame table is empty
+  if(current_fte == NULL){                    
 		list_push_front(&frame_table, &fte->elem);
     current_fte = fte;
-		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
   }
   else{      
-    //printf("current_fte not NULL\n");
-		//printf("current_fte frame %p\n", current_fte);
-		//printf("fte frame %p\n", fte->frame_number);
     list_insert(&current_fte->elem, &fte->elem);
   }
-	//printf("insert_frame finish!\n");
   
   lock_release(&frame_table_lock);
 }
 
 void progress_current_fte(){
-
   ASSERT(lock_held_by_current_thread(&frame_table_lock));
 
 	if(list_empty(&frame_table)){
@@ -49,6 +44,7 @@ void progress_current_fte(){
 		return;
 	}
 
+  // Do increment of current_fte
   if (current_fte != list_entry(list_prev(list_end(&frame_table)), struct frame_table_entry, elem))
     current_fte = list_entry(list_next(&current_fte->elem), struct frame_table_entry, elem);
   else
@@ -67,22 +63,18 @@ struct frame_table_entry *find_eviction_frame(){
   // Find eviction candidate
   while(1){
     t = current_fte->thread;
-		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
    
     if (!pagedir_is_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12) && (current_fte->pin == false)){
-      //printf("1\n");
       break;
     }
     else{ 
       pagedir_set_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12, false);
-      //printf("2\n");
 
       // If current_fte arrives to the end of the frame table, set it to the start of the table
       progress_current_fte();
     }
   }
   result = current_fte;
-	//printf("find eviction candidate in find_eviction_frame\n");
   
   // Increment current_fte
   progress_current_fte();
@@ -136,13 +128,9 @@ struct frame_table_entry *frame_alloc(){
   kpage = palloc_get_page (PAL_USER);
   
   if(kpage == NULL){
-	 	//printf("eviction occur!\n");
     struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
-		//printf("candidate find!\n");
     if(eviction->s_pte->type == TYPE_FILE){
       mmap_write_back (eviction->s_pte);
-
-        //printf("swap out fail!\n");
     }
     else{
 			ASSERT (eviction->s_pte->type == TYPE_EXEC || eviction->s_pte->type == TYPE_STACK);
@@ -150,15 +138,11 @@ struct frame_table_entry *frame_alloc(){
 				lock_release(&frame_table_lock);
 				return NULL;
 			}
-      //printf("mmap_write_back ", TYPE_FILE);
-			// type == mmapped file
     }
 	
+    // Deallocate s_pte, Physical Memory and corresponding fte
 	  eviction->s_pte->fte = NULL;
-			//printf("1\n");
 
-		// Deallocate Physical Memory and corresponding fte
-			// palloc_free_page((uintptr_t)eviction->frame_number << 12);
     remove_frame_entry(eviction);
     pagedir_clear_page(eviction->thread->pagedir, (uintptr_t)eviction->s_pte->page_number << 12);
 
@@ -179,8 +163,6 @@ struct frame_table_entry *frame_alloc(){
   }
   
   lock_release(&frame_table_lock);
-
-	//printf("page Alloc kpage %p\n", kpage);
 
   return fte;
 }
