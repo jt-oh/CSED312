@@ -232,6 +232,10 @@ process_exit (void)
 
 	//printf("process_exit() deallocate mmap_file\n");
 
+  // Project 3 Deallocate sPage table
+  hash_destroy(&cur->sPage_table, s_pte_fte_ste_deallocator);
+  /*End SOS Implementation */
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -264,9 +268,6 @@ process_exit (void)
 
 	//printf("before hash_destroy\n");
 
-  // Project 3 Deallocate sPage table
-  hash_destroy(&cur->sPage_table, s_pte_fte_ste_deallocator);
-  /*End SOS Implementation */
 
 	//printf("after hash_destroy\n");
 }
@@ -647,7 +648,7 @@ setup_stack (void **esp)
         fte->frame_number = PG_NUM(kpage);                             // Initialize fte
         fte->s_pte = s_pte;
         fte->thread = thread_current();
-        fte->pin =
+        fte->pin = false;
         
         hash_insert(&thread_current()->sPage_table, &s_pte->elem);     // Insert s_pte into sPageTable
 				//printf("page_number %x\n with frame number %x\n", s_pte->page_number, kpage);
@@ -663,11 +664,10 @@ setup_stack (void **esp)
         free(fte);
         // End SOS Implementation project 3
       }
-    }
-
-  // SOS Implementation project 3
-  if(!success){                 // If not success but resources are allocated, free them
-    if(kpage)
+    }											 // SOS Implementation project 3
+  else{                
+											// If not success but resources are allocated, free them
+  	if(kpage)
       palloc_free_page(kpage);
     if(s_pte)
       free(s_pte);

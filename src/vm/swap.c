@@ -73,7 +73,7 @@ bool swap_in (struct sPage_table_entry *e, struct frame_table_entry *fte){
 
   if (!install_page ((uintptr_t)e->page_number << 12, (uintptr_t)fte->frame_number << 12, e->writable)) {  // Bring Swap table entry to Physical memory
     palloc_free_page ((uintptr_t)fte->frame_number << 12);
-    free((uintptr_t)fte->frame_number << 12);
+    free(fte);
     return false; 
   }
   

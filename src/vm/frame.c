@@ -69,7 +69,7 @@ struct frame_table_entry *find_eviction_frame(){
     t = current_fte->thread;
 		//printf("vpage is %p\n", (uintptr_t)current_fte->s_pte->page_number << 12);
    
-    if (!pagedir_is_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12) && current_fte->pin == false){
+    if (!pagedir_is_accessed(t->pagedir, (uintptr_t)current_fte->s_pte->page_number << 12) && (current_fte->pin == false)){
       //printf("1\n");
       break;
     }
@@ -139,18 +139,19 @@ struct frame_table_entry *frame_alloc(){
 	 	//printf("eviction occur!\n");
     struct frame_table_entry *eviction = find_eviction_frame();    // When Physical memory is full, execute eviction
 		//printf("candidate find!\n");
-    if(eviction->s_pte->type == TYPE_EXEC){
-      if(!swap_out(eviction)){                                       // Swap evicted frame into the swap table
-				lock_release(&frame_table_lock);
-				return false;
-			}
+    if(eviction->s_pte->type == TYPE_FILE){
+      mmap_write_back (eviction->s_pte);
 
         //printf("swap out fail!\n");
     }
-    else if(eviction->s_pte->type == TYPE_FILE){
+    else{
+			ASSERT (eviction->s_pte->type == TYPE_EXEC || eviction->s_pte->type == TYPE_STACK);
+      if(!swap_out(eviction)){                                       // Swap evicted frame into the swap table
+				lock_release(&frame_table_lock);
+				return NULL;
+			}
       //printf("mmap_write_back ", TYPE_FILE);
-      mmap_write_back (eviction->s_pte);
-      // type == mmapped file
+			// type == mmapped file
     }
 	
 	  eviction->s_pte->fte = NULL;

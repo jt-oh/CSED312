@@ -11,14 +11,14 @@
 
 #define PG_NUM(ADDR) ((uintptr_t)ADDR >> 12)
 
-#define TYPE_EXEC 0
-#define TYPE_FILE 1
-#define TYPE_STACK 2
+#define TYPE_EXEC 1
+#define TYPE_FILE 2
+#define TYPE_STACK 3
 
-#define LOC_NONE 0
-#define LOC_PHYS 1
-#define LOC_SWAP 2
-#define LOC_FILE 3
+#define LOC_NONE 1
+#define LOC_PHYS 2
+#define LOC_SWAP 3
+#define LOC_FILE 4
 
 struct sPage_table_entry
 {

@@ -192,7 +192,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             f->eax = result;
   }
 
-	//printf("end syscall_handler with syscall number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
+//	printf("end syscall_handler with syscall number %d by %s %d\n", number, thread_current()->name, thread_current()->tid);
 }
 
 bool isValid_Vaddr (void *addr){

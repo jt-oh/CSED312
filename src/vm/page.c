@@ -87,10 +87,15 @@ void s_pte_fte_ste_deallocator (struct hash_elem *e, void *aux){
 
 	//printf("delete %p sPte with %p frame_number\n", s_pte->page_number, s_pte->fte->frame_number);
   // Deallocate related frame table entry or swap table entry
-  if(s_pte->location == LOC_PHYS)
+  if(s_pte->location == LOC_PHYS){
+		palloc_free_page((uintptr_t)s_pte->fte->frame_number << 12);
+		pagedir_clear_page(s_pte->fte->thread->pagedir, (uintptr_t)s_pte->page_number << 12);
     delete_frame_entry(s_pte->fte);
+	}
   else if(s_pte->location == LOC_SWAP)
     delete_swap_table_entry(s_pte->slot_number);
+
+	
 
   // Deallocate s_pte
   free(s_pte);

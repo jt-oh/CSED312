@@ -248,10 +248,11 @@ bool page_fault_handler (void *vaddr){
          result = swap_in(s_pte, fte);
          break;      
       default:
+				NOT_REACHED();
 	   		break;
    }
 
-	 //printf("finish page_fault_handler with %d\n", result);
+	// printf("finish page_fault_handler with %d\n", result);
    return result;
 }
 
@@ -260,28 +261,19 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
    
    ASSERT (fte != NULL);
   
-   // Mapping frame in spte
-   e->fte = fte;
-   e->location = LOC_PHYS;       // Store Memory in Physcial memory
-
-	 //printf("Initilize spte\n");
-   
-   // Initialize fte                
-   fte->s_pte = e;
-   fte->thread = thread_current();
-   fte->pin = false;
-
 	 //printf("initialize fte\n");
 
 		//printf("kpage %p file %p\n", kpage, e->file);
+	
+	ASSERT( !lock_held_by_current_thread(&file_lock));
 
    /* Load this page. */
-   if(lock_held_by_current_thread(&file_lock)){
+   /*if(lock_held_by_current_thread(&file_lock)){
 	 		//printf("before file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
       success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
 	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
 		}
-   else{
+   else{*/
 			//printf("3\n");
 			//if(file_lock.holder)
 				//printf("%s\n", file_lock.holder->name);
@@ -290,7 +282,7 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
       success = file_read_at (e->file, (uintptr_t)fte->frame_number << 12, e->read_bytes, e->offset) == (int) e->read_bytes;
       lock_release(&file_lock);
 	 		//printf("finish file read at file_load by %s %d\n", thread_current()->name, thread_current()->tid);
-   }
+   //}
 
 		//printf("4\n");
    if (!success)
@@ -315,6 +307,16 @@ bool load_files(struct sPage_table_entry *e, struct frame_table_entry *fte){
 
 		//printf("6\n");
 		
+   // Mapping frame in spte
+   e->fte = fte;
+   e->location = LOC_PHYS;       // Store Memory in Physcial memory
+
+	 //printf("Initilize spte\n");
+   
+   // Initialize fte                
+   fte->s_pte = e;
+   fte->thread = thread_current();
+   fte->pin = false;
 		//printf("load executable before insert_frame\n");
    insert_frame(fte);     // Insert new frame table entry into frame_table
 		//printf("executable load with page number %x, frame number %x\n", e->page_number, fte->frame_number);
