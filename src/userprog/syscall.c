@@ -617,14 +617,14 @@ void mmap_write_back (struct sPage_table_entry *s_pte){
 
   // If dirty bit is true, write back into File System
   if(dirty){           
-    /*if(!lock_held_by_current_thread(&file_lock)){                    
+    if(!lock_held_by_current_thread(&file_lock)){                    
       file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
 		}
-    else{*/
+    else{
       lock_acquire(&file_lock);
       file_write_at(s_pte->file, (uintptr_t)s_pte->fte->frame_number << 12, s_pte->read_bytes, s_pte->offset);
       lock_release(&file_lock);
-    //}
+    }
   }
 
   s_pte->location = LOC_FILE;             // Current sPage table entry is located in File System
